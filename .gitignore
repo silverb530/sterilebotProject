@@ -1,0 +1,28 @@
+# ── Python ──────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.env
+
+# ── Node (React/Vite) ────────────────
+server/web/node_modules/
+server/web/dist/
+server/web/.vite/
+
+# ── .NET / WPF ───────────────────────
+manager/manager/bin/
+manager/manager/obj/
+manager/manager/.vs/
+manager/.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ── 기타 ─────────────────────────────
+.DS_Store
+Thumbs.db
+*.log

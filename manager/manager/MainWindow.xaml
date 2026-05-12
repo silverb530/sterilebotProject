@@ -1,0 +1,596 @@
+<Window x:Class="SterileBot.Calibration.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SterileBot" Width="1400" Height="860"
+        MinWidth="1100" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" ResizeMode="CanResize"
+        AllowsTransparency="True" Background="Transparent"
+        FontFamily="{StaticResource SansFont}" FontSize="13">
+
+    <Border Background="{StaticResource BgBrush}" CornerRadius="12" BorderBrush="#18000000" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" Opacity="0.15" BlurRadius="40" ShadowDepth="4"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ╔══════════ 다크 사이드바 ══════════╗ -->
+            <Border Grid.Column="0" Background="{StaticResource SidebarBgBrush}" CornerRadius="12,0,0,12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="72"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 로고 -->
+                    <Border Grid.Row="0" Padding="20,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="36" Height="36" CornerRadius="10" Background="{StaticResource AccentBrush}">
+                                <TextBlock Text="S" Foreground="White" FontSize="17" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="SterileBot" FontSize="15" FontWeight="Bold" Foreground="White"/>
+                                <TextBlock Text="Calibration · v2.0" FontSize="11" Foreground="{StaticResource SidebarSectionBrush}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 메뉴 -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <TextBlock Text="WORKSPACE" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SidebarSectionBrush}"
+                                       Margin="24,14,0,8"/>
+
+                            <ToggleButton x:Name="NavCalib" Style="{StaticResource SidebarItem}" IsChecked="True" Click="Nav_Click" Tag="calib">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="18" Height="18" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=ToggleButton}, Path=Foreground}"
+                                          StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M3 3 H 11 V 11 H 3 Z M13 3 H 21 V 11 H 13 Z M3 13 H 11 V 21 H 3 Z M13 13 H 21 V 21 H 13 Z"/>
+                                    <TextBlock Text="대시보드" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <ToggleButton x:Name="NavManual" Style="{StaticResource SidebarItem}" Click="Nav_Click" Tag="manual">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="18" Height="18" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=ToggleButton}, Path=Foreground}"
+                                          StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M12 2 A 10 10 0 1 0 12 22 A 10 10 0 1 0 12 2 Z M12 6 A 6 6 0 1 0 12 18 A 6 6 0 1 0 12 6 Z M12 10 A 2 2 0 1 0 12 14 A 2 2 0 1 0 12 10 Z"/>
+                                    <TextBlock Text="캘리브레이션" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <ToggleButton x:Name="NavParams" Style="{StaticResource SidebarItem}" Click="Nav_Click" Tag="params">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="18" Height="18" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=ToggleButton}, Path=Foreground}"
+                                          StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M6 12 H 10 M8 10 V 14 M15 11 H 15.01 M18 13 H 18.01 M17.32 5 H 6.68 A 4 4 0 0 0 2.78 9.86 L 0.99 16.99 A 1.5 1.5 0 0 0 2.43 18.85 H 3.71 A 3 3 0 0 0 6.41 17.18 L 7.5 15 H 16.5 L 17.59 17.18 A 3 3 0 0 0 20.29 18.85 H 21.57 A 1.5 1.5 0 0 0 23.01 16.99 L 21.22 9.86 A 4 4 0 0 0 17.32 5 Z"/>
+                                    <TextBlock Text="수동 제어" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <ToggleButton x:Name="NavModels" Style="{StaticResource SidebarItem}" Click="Nav_Click" Tag="models">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="18" Height="18" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=ToggleButton}, Path=Foreground}"
+                                          StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M4 6 H 11 M15 6 H 20 M13 6 a 2 2 0 1 0 4 0 a 2 2 0 1 0 -4 0 M4 12 H 7 M11 12 H 20 M9 12 a 2 2 0 1 0 4 0 a 2 2 0 1 0 -4 0 M4 18 H 15 M19 18 H 20 M17 18 a 2 2 0 1 0 -4 0 a 2 2 0 1 0 4 0"/>
+                                    <TextBlock Text="파라미터" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <ToggleButton x:Name="NavExtra" Style="{StaticResource SidebarItem}" Click="Nav_Click" Tag="extra">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="18" Height="18" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=ToggleButton}, Path=Foreground}"
+                                          StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M4 4 H 20 V 20 H 4 Z M9 9 H 15 V 15 H 9 Z M4 9 H 2 M4 15 H 2 M22 9 H 20 M22 15 H 20 M9 4 V 2 M15 4 V 2 M9 22 V 20 M15 22 V 20"/>
+                                    <TextBlock Text="모델 관리" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <!-- TOOLS 섹션 -->
+                            <TextBlock Text="TOOLS" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SidebarSectionBrush}"
+                                       Margin="24,20,0,8"/>
+
+                            <Button Style="{StaticResource SidebarActionButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16" Height="16" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{StaticResource SidebarTextBrush}" StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M14 2 H 6 a 2 2 0 0 0 -2 2 v 16 a 2 2 0 0 0 2 2 h 12 a 2 2 0 0 0 2 -2 V 8 Z M14 2 V 8 H 20 M16 13 H 8 M16 17 H 8 M10 9 H 8"/>
+                                    <TextBlock Text="로그 보기" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SidebarActionButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16" Height="16" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{StaticResource SidebarTextBrush}" StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M18 8 A 6 6 0 0 0 6 8 c 0 7 -3 9 -3 9 h 18 s -3 -2 -3 -9 M13.73 21 a 2 2 0 0 1 -3.46 0"/>
+                                    <TextBlock Text="알람 이력" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SidebarActionButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16" Height="16" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{StaticResource SidebarTextBrush}" StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M12.22 2 h -.44 a 2 2 0 0 0 -2 2 v .18 a 2 2 0 0 1 -1 1.73 l -.43 .25 a 2 2 0 0 1 -2 0 l -.15 -.08 a 2 2 0 0 0 -2.73 .73 l -.22 .38 a 2 2 0 0 0 .73 2.73 l .15 .1 a 2 2 0 0 1 1 1.72 v .51 a 2 2 0 0 1 -1 1.74 l -.15 .09 a 2 2 0 0 0 -.73 2.73 l .22 .38 a 2 2 0 0 0 2.73 .73 l .15 -.08 a 2 2 0 0 1 2 0 l .43 .25 a 2 2 0 0 1 1 1.73 V 20 a 2 2 0 0 0 2 2 h .44 a 2 2 0 0 0 2 -2 v -.18 a 2 2 0 0 1 1 -1.73 l .43 -.25 a 2 2 0 0 1 2 0 l .15 .08 a 2 2 0 0 0 2.73 -.73 l .22 -.39 a 2 2 0 0 0 -.73 -2.73 l -.15 -.08 a 2 2 0 0 1 -1 -1.74 v -.5 a 2 2 0 0 1 1 -1.74 l .15 -.09 a 2 2 0 0 0 .73 -2.73 l -.22 -.38 a 2 2 0 0 0 -2.73 -.73 l -.15 .08 a 2 2 0 0 1 -2 0 l -.43 -.25 a 2 2 0 0 1 -1 -1.73 V 4 a 2 2 0 0 0 -2 -2 Z M12 9 a 3 3 0 1 0 0 6 a 3 3 0 1 0 0 -6 Z"/>
+                                    <TextBlock Text="설정" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- ACTIONS 섹션 -->
+                            <TextBlock Text="ACTIONS" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SidebarSectionBrush}"
+                                       Margin="24,20,0,8"/>
+
+                            <Button Style="{StaticResource SidebarActionButton}" Click="SaveCsv_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16" Height="16" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{StaticResource SidebarTextBrush}" StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M19 21 H 5 a 2 2 0 0 1 -2 -2 V 5 a 2 2 0 0 1 2 -2 h 11 l 5 5 v 11 a 2 2 0 0 1 -2 2 Z M17 21 V 13 H 7 V 21 M7 3 V 8 H 15"/>
+                                    <TextBlock Text="CSV 저장" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SidebarActionButton}" Click="LoadCsv_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16" Height="16" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="{StaticResource SidebarTextBrush}" StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M22 19 a 2 2 0 0 1 -2 2 H 4 a 2 2 0 0 1 -2 -2 V 5 a 2 2 0 0 1 2 -2 h 5 l 2 3 h 9 a 2 2 0 0 1 2 2 Z"/>
+                                    <TextBlock Text="불러오기" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SidebarActionButton}" Click="Reset_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16" Height="16" Stretch="Uniform" Fill="Transparent"
+                                          Stroke="#FFF04438" StrokeThickness="1.6" StrokeLineJoin="Round"
+                                          Data="M3 6 H 21 M19 6 V 20 a 2 2 0 0 1 -2 2 H 7 a 2 2 0 0 1 -2 -2 V 6 M8 6 V 4 a 2 2 0 0 1 2 -2 h 4 a 2 2 0 0 1 2 2 V 6"/>
+                                    <TextBlock Text="초기화" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="#FFF04438"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- 하단 연결 상태 -->
+                    <Border Grid.Row="2" Padding="20,14" CornerRadius="0,0,0,12"
+                            Background="#FF151929">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource GreenBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="myCobot" FontSize="12" Foreground="#FFB0B7CD" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="192.168.0.20" FontSize="11" FontFamily="{StaticResource MonoFont}"
+                                       Foreground="{StaticResource SidebarSectionBrush}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ╔══════════ 워크스페이스 ══════════╗ -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="64"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- 상단 헤더 -->
+                <Border Grid.Row="0" Background="{StaticResource BgBrush}" CornerRadius="0,12,0,0"
+                        MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                    <Grid Margin="32,0,16,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 좌측: 페이지 제목 -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="PageTitle" Text="파라미터" Style="{StaticResource H1}" FontSize="20"/>
+                            <TextBlock x:Name="PageSubtitle" Text="시선 추적 · 안전 설정"
+                                       FontSize="13" Foreground="{StaticResource TextDimBrush}"
+                                       VerticalAlignment="Center" Margin="14,2,0,0"/>
+                        </StackPanel>
+
+                        <!-- 우측: 배지 + 액션 -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                            <!-- 연결됨 배지 -->
+                            <Border Background="{StaticResource AccentLightBrush}" CornerRadius="20" Padding="12,5" Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="연결됨" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"
+                                               Margin="6,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <!-- 안전 상태 배지 -->
+                            <Border Background="{StaticResource GreenLightBrush}" CornerRadius="20" Padding="12,5" Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource GreenBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="안전 상태" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource GreenBrush}"
+                                               Margin="6,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <!-- AI 모델 배지 -->
+                            <Border x:Name="GazeStatusBadge" Background="{StaticResource AmberLightBrush}" CornerRadius="20" Padding="12,5" Margin="0,0,12,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource AmberBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="GazeStatusText" Text="AI 모델 활성화" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource AmberBrush}" Margin="6,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Button Style="{StaticResource SecondaryButton}" Click="ExportOnnx_Click" Height="36" Padding="14,0">
+                                <TextBlock Text="ONNX 내보내기" VerticalAlignment="Center"/>
+                            </Button>
+                            <Button Style="{StaticResource PrimaryButton}" Click="StartCalib_Click" Margin="8,0,0,0" Height="36" Padding="16,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="10" Height="10" Stretch="Uniform" Fill="White" Data="M8 5 v 14 l 11 -7 z"/>
+                                    <TextBlock Text="캘리브레이션 시작" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- 윈도우 컨트롤 -->
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource WinControlButton}" Content="─" Click="Minimize_Click"/>
+                            <Button Style="{StaticResource WinControlButton}" Content="□" Click="Maximize_Click"/>
+                            <Button Style="{StaticResource WinControlButtonClose}" Content="✕" Click="Close_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 콘텐츠 -->
+                <Grid Grid.Row="1">
+
+                    <!-- ═══ PANE: 캘리브레이션 (기존 calib) ═══ -->
+                    <ScrollViewer x:Name="PaneCalib" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid Margin="32,24,32,32">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="340"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <!-- 마커 그리드 카드 -->
+                                <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                        CornerRadius="18" Padding="28">
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,20">
+                                            <StackPanel>
+                                                <TextBlock Text="마커 그리드" Style="{StaticResource H2}"/>
+                                                <TextBlock Text="작업대 4×4 마커를 순서대로 응시하세요" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                            <Border x:Name="CalibBadge" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                    Background="{StaticResource AmberLightBrush}" CornerRadius="20" Padding="12,5">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="6" Height="6" Fill="{StaticResource AmberBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="CalibBadgeText" Text="진행 전" FontSize="11" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource AmberBrush}" Margin="6,0,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,8">
+                                            <TextBlock Text="진행도" FontSize="12" FontWeight="Medium" Foreground="{StaticResource TextMidBrush}"/>
+                                            <TextBlock x:Name="ProgText" Text="0 / 16" FontSize="12" FontWeight="Bold"
+                                                       FontFamily="{StaticResource MonoFont}" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Border Height="6" Background="{StaticResource CardSubtleBrush}" CornerRadius="3"
+                                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                            <Border x:Name="ProgFill" HorizontalAlignment="Left" Background="{StaticResource AccentBrush}"
+                                                    CornerRadius="3" Width="0"/>
+                                        </Border>
+                                        <Border Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                                BorderThickness="1" CornerRadius="14" Padding="28" Margin="0,24,0,0" HorizontalAlignment="Center">
+                                            <UniformGrid x:Name="MarkerGrid" Rows="4" Columns="4"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 측정 결과 카드 -->
+                                <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                        CornerRadius="18" Padding="28" Margin="0,20,0,0">
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <TextBlock Text="측정 결과" Style="{StaticResource H2}"/>
+                                        <TextBlock Text="응시 완료 시 자동 계산" Style="{StaticResource Caption}" Margin="0,4,0,20"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/><ColumnDefinition Width="14"/>
+                                                <ColumnDefinition Width="*"/><ColumnDefinition Width="14"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                                    BorderThickness="1" CornerRadius="12" Padding="18,16">
+                                                <StackPanel>
+                                                    <TextBlock Text="평균 오차" Style="{StaticResource Label}"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                        <TextBlock x:Name="AvgErrText" Text="—" FontSize="28" FontWeight="Bold"
+                                                                   FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource TextDimBrush}"/>
+                                                        <TextBlock Text="mm" FontSize="14" Foreground="{StaticResource TextDimBrush}"
+                                                                   VerticalAlignment="Bottom" Margin="6,0,0,5"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="2" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                                    BorderThickness="1" CornerRadius="12" Padding="18,16">
+                                                <StackPanel>
+                                                    <TextBlock Text="최대 오차" Style="{StaticResource Label}"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                        <TextBlock x:Name="MaxErrText" Text="—" FontSize="28" FontWeight="Bold"
+                                                                   FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource TextDimBrush}"/>
+                                                        <TextBlock Text="mm" FontSize="14" Foreground="{StaticResource TextDimBrush}"
+                                                                   VerticalAlignment="Bottom" Margin="6,0,0,5"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="4" Background="{StaticResource AmberLightBrush}" CornerRadius="12" Padding="18,16">
+                                                <StackPanel>
+                                                    <TextBlock Text="허용 기준" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AmberBrush}"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                        <TextBlock Text="15" FontSize="28" FontWeight="Bold" FontFamily="{StaticResource MonoFont}"
+                                                                   Foreground="{StaticResource AmberBrush}"/>
+                                                        <TextBlock Text="mm 이하" FontSize="13" Foreground="{StaticResource AmberBrush}"
+                                                                   VerticalAlignment="Bottom" Margin="6,0,0,5"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- 우측: 안내 + 작업 순서 -->
+                            <StackPanel Grid.Column="2">
+                                <Border Background="{StaticResource AccentSoftBrush}" CornerRadius="18" Padding="24">
+                                    <StackPanel>
+                                        <TextBlock Text="안내" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,10"/>
+                                        <TextBlock x:Name="CalibMsg" Text="'캘리브레이션 시작' 버튼을 누른 후 마커를 순서대로 클릭해 3초씩 응시하세요."
+                                                   FontSize="13" Foreground="{StaticResource TextBrush}" LineHeight="22" TextWrapping="Wrap"/>
+                                        <Grid Margin="0,16,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Content="시작" Click="StartCalib_Click"/>
+                                            <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="초기화" Click="Reset_Click"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                        CornerRadius="18" Padding="24" Margin="0,20,0,0">
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <TextBlock Text="작업 순서" Style="{StaticResource H2}" Margin="0,0,0,16"/>
+                                        <Grid Margin="0,0,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Border Width="24" Height="24" Background="{StaticResource AccentBrush}" CornerRadius="12">
+                                                <TextBlock Text="1" Foreground="White" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Text="마커 16개를 작업대에 4×4로 배치" FontSize="13" Foreground="{StaticResource TextMidBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Border Width="24" Height="24" Background="{StaticResource AccentBrush}" CornerRadius="12">
+                                                <TextBlock Text="2" Foreground="White" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Text="수동 제어에서 로봇팔로 XYZ 측정" FontSize="13" Foreground="{StaticResource TextMidBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Border Width="24" Height="24" Background="{StaticResource AccentBrush}" CornerRadius="12">
+                                                <TextBlock Text="3" Foreground="White" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Text="안경 착용 후 마커 순서대로 3초 응시" FontSize="13" Foreground="{StaticResource TextMidBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                        </Grid>
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Border Width="24" Height="24" Background="{StaticResource AccentBrush}" CornerRadius="12">
+                                                <TextBlock Text="4" Foreground="White" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Text="모델 관리에서 CNN 학습 → ONNX" FontSize="13" Foreground="{StaticResource TextMidBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <!-- ═══ 나머지 PANE 들 (동일 패턴, Collapsed) ═══ -->
+                    <ScrollViewer x:Name="PaneManual" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="32,24,32,32">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="18" Padding="28">
+                                    <Border.Effect><DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
+                                    <StackPanel>
+                                        <TextBlock Text="좌표 직접 입력" Style="{StaticResource H2}"/>
+                                        <TextBlock Text="목표 위치를 mm 단위로 입력하세요" Style="{StaticResource Caption}" Margin="0,4,0,20"/>
+                                        <Grid Margin="0,0,0,14"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0"><TextBlock Text="X" Style="{StaticResource Label}" Margin="0,0,0,6"/><TextBox x:Name="InX" Style="{StaticResource ModernTextBox}" Text="135"/></StackPanel>
+                                            <StackPanel Grid.Column="2"><TextBlock Text="Y" Style="{StaticResource Label}" Margin="0,0,0,6"/><TextBox x:Name="InY" Style="{StaticResource ModernTextBox}" Text="-82"/></StackPanel>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,24"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0"><TextBlock Text="Z" Style="{StaticResource Label}" Margin="0,0,0,6"/><TextBox x:Name="InZ" Style="{StaticResource ModernTextBox}" Text="200"/></StackPanel>
+                                            <StackPanel Grid.Column="2"><TextBlock Text="RZ (°)" Style="{StaticResource Label}" Margin="0,0,0,6"/><TextBox x:Name="InRz" Style="{StaticResource ModernTextBox}" Text="0"/></StackPanel>
+                                        </Grid>
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Content="이동 실행" Click="SendCoords_Click"/>
+                                            <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="홈 복귀" Click="GoHome_Click"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="18" Padding="28" Margin="0,20,0,0">
+                                    <Border.Effect><DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,16">
+                                            <StackPanel><TextBlock Text="그리퍼" Style="{StaticResource H2}"/><TextBlock Text="집기 도구 제어" Style="{StaticResource Caption}" Margin="0,4,0,0"/></StackPanel>
+                                            <Border x:Name="GripStateBadge" HorizontalAlignment="Right" VerticalAlignment="Center" Background="{StaticResource GreenLightBrush}" CornerRadius="20" Padding="12,5">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="6" Height="6" Fill="{StaticResource GreenBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="GripState" Text="열림" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource GreenBrush}" Margin="6,0,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Style="{StaticResource SecondaryButton}" Content="열기 (0)" Click="GripOpen_Click"/>
+                                            <Button Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="닫기 (100)" Click="GripClose_Click"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="18" Padding="28">
+                                    <Border.Effect><DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
+                                    <StackPanel>
+                                        <TextBlock Text="축별 슬라이더" Style="{StaticResource H2}"/>
+                                        <TextBlock Text="드래그해서 부드럽게 조정" Style="{StaticResource Caption}" Margin="0,4,0,20"/>
+                                        <Grid Margin="0,0,0,18"><Grid Margin="0,0,0,6"><TextBlock Text="X" FontSize="11" FontWeight="SemiBold" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource TextMidBrush}"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><TextBlock x:Name="SvX" Text="135" FontFamily="{StaticResource MonoFont}" FontSize="14" FontWeight="SemiBold"/><TextBlock Text=" mm" FontSize="11" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Bottom" Margin="0,0,0,1"/></StackPanel></Grid><Slider x:Name="SlX" Minimum="-260" Maximum="260" Value="135" ValueChanged="SliderX_Changed" Margin="0,18,0,0"/></Grid>
+                                        <Grid Margin="0,0,0,18"><Grid Margin="0,0,0,6"><TextBlock Text="Y" FontSize="11" FontWeight="SemiBold" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource TextMidBrush}"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><TextBlock x:Name="SvY" Text="-82" FontFamily="{StaticResource MonoFont}" FontSize="14" FontWeight="SemiBold"/><TextBlock Text=" mm" FontSize="11" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Bottom" Margin="0,0,0,1"/></StackPanel></Grid><Slider x:Name="SlY" Minimum="-260" Maximum="260" Value="-82" ValueChanged="SliderY_Changed" Margin="0,18,0,0"/></Grid>
+                                        <Grid Margin="0,0,0,18"><Grid Margin="0,0,0,6"><TextBlock Text="Z" FontSize="11" FontWeight="SemiBold" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource TextMidBrush}"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><TextBlock x:Name="SvZ" Text="200" FontFamily="{StaticResource MonoFont}" FontSize="14" FontWeight="SemiBold"/><TextBlock Text=" mm" FontSize="11" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Bottom" Margin="0,0,0,1"/></StackPanel></Grid><Slider x:Name="SlZ" Minimum="50" Maximum="300" Value="200" ValueChanged="SliderZ_Changed" Margin="0,18,0,0"/></Grid>
+                                        <Grid Margin="0,0,0,24"><Grid Margin="0,0,0,6"><TextBlock Text="RZ" FontSize="11" FontWeight="SemiBold" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource TextMidBrush}"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><TextBlock x:Name="SvRz" Text="0" FontFamily="{StaticResource MonoFont}" FontSize="14" FontWeight="SemiBold"/><TextBlock Text=" °" FontSize="11" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Bottom" Margin="0,0,0,1"/></StackPanel></Grid><Slider x:Name="SlRz" Minimum="-180" Maximum="180" Value="0" ValueChanged="SliderRz_Changed" Margin="0,18,0,0"/></Grid>
+                                        <Button Style="{StaticResource PrimaryButton}" Content="슬라이더 값으로 이동" Click="SendFromSliders_Click" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="18" Margin="0,20,0,0">
+                                    <Border.Effect><DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
+                                    <StackPanel>
+                                        <Grid Margin="28,20,28,12"><TextBlock Text="명령 로그" Style="{StaticResource H2}"/><Button Style="{StaticResource GhostButton}" Click="ClearLog_Click" HorizontalAlignment="Right" Height="28" FontSize="11"><TextBlock Text="지우기"/></Button></Grid>
+                                        <Border Background="{StaticResource ConsoleBgBrush}" CornerRadius="0,0,18,18" MinHeight="140" Padding="24,16">
+                                            <ScrollViewer x:Name="CtrlLogScroll" VerticalScrollBarVisibility="Auto">
+                                                <TextBlock x:Name="CtrlLog" Text="$ 대기 중..." FontFamily="{StaticResource MonoFont}" FontSize="12" Foreground="{StaticResource ConsoleFgBrush}" LineHeight="22" TextWrapping="Wrap"/>
+                                            </ScrollViewer>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <!-- ═══ PANE: 파라미터 ═══ -->
+                    <ScrollViewer x:Name="PaneParams" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="32,24,32,32">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="18" Padding="28" VerticalAlignment="Top">
+                                <Border.Effect><DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
+                                <StackPanel>
+                                    <TextBlock Text="시선 제어" Style="{StaticResource H2}"/><TextBlock Text="동공 추적 및 응시 판정 파라미터" Style="{StaticResource Caption}" Margin="0,4,0,24"/>
+                                    <Grid Margin="0,0,0,18"><StackPanel><TextBlock Text="EAR 임계값" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextBrush}"/><TextBlock Text="이 값 이하 시 깜빡임으로 판정" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0"/></StackPanel><TextBox x:Name="PEar" Style="{StaticResource ParamTextBox}" Text="0.20" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid><Rectangle Height="1" Fill="{StaticResource BorderBrush}"/>
+                                    <Grid Margin="0,18,0,18"><StackPanel><TextBlock Text="깜빡임 유지 시간" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextBrush}"/><TextBlock Text="EAR 임계값 이하 유지 최소 시간" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBox x:Name="PEarMs" Style="{StaticResource ParamTextBox}" Text="150"/><TextBlock Text="ms" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel></Grid><Rectangle Height="1" Fill="{StaticResource BorderBrush}"/>
+                                    <Grid Margin="0,18,0,18"><StackPanel><TextBlock Text="Dwell 시간" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextBrush}"/><TextBlock Text="응시 유지 시간 → 로봇 이동 트리거" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBox x:Name="PDwell" Style="{StaticResource ParamTextBox}" Text="1.5"/><TextBlock Text="s" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel></Grid><Rectangle Height="1" Fill="{StaticResource BorderBrush}"/>
+                                    <Grid Margin="0,18,0,18"><StackPanel><TextBlock Text="Dwell 반경" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextBrush}"/><TextBlock Text="응시 중 허용되는 동공 이동 범위" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBox x:Name="PDwellR" Style="{StaticResource ParamTextBox}" Text="30"/><TextBlock Text="px" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel></Grid><Rectangle Height="1" Fill="{StaticResource BorderBrush}"/>
+                                    <Grid Margin="0,18,0,0"><StackPanel><TextBlock Text="이중 깜빡임 간격" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextBrush}"/><TextBlock Text="이 시간 내 2회 → 긴급정지" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBox x:Name="PDbl" Style="{StaticResource ParamTextBox}" Text="0.5"/><TextBlock Text="s" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel></Grid>
+                                    <!-- 안내 메시지 -->
+                                    <Border Background="{StaticResource InfoLightBrush}" CornerRadius="12" Padding="16,12" Margin="0,24,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="6" Height="6" Fill="{StaticResource InfoBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="모든 파라미터는 실시간으로 적용됩니다." FontSize="12" Foreground="{StaticResource InfoBrush}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel Grid.Column="2">
+                                <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="18" Padding="28">
+                                    <Border.Effect><DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
+                                    <StackPanel>
+                                        <TextBlock Text="로봇 안전" Style="{StaticResource H2}"/><TextBlock Text="작업 반경 및 속도 제어" Style="{StaticResource Caption}" Margin="0,4,0,24"/>
+                                        <Grid Margin="0,0,0,18"><StackPanel><TextBlock Text="안전 반경" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextBrush}"/><TextBlock Text="초과 시 이동 거부" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBox x:Name="PSafeR" Style="{StaticResource ParamTextBox}" Text="260"/><TextBlock Text="mm" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel></Grid><Rectangle Height="1" Fill="{StaticResource BorderBrush}"/>
+                                        <Grid Margin="0,18,0,18"><StackPanel><TextBlock Text="수평 이동 안전 높이" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextBrush}"/><TextBlock Text="이동 시 유지할 Z값" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBox x:Name="PSafeZ" Style="{StaticResource ParamTextBox}" Text="200"/><TextBlock Text="mm" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel></Grid><Rectangle Height="1" Fill="{StaticResource BorderBrush}"/>
+                                        <Grid Margin="0,18,0,18"><StackPanel><TextBlock Text="집기 하강 속도" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextBrush}"/><TextBlock Text="그리퍼 내려올 때 속도" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBox x:Name="PGripSpd" Style="{StaticResource ParamTextBox}" Text="10"/><TextBlock Text="%" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel></Grid><Rectangle Height="1" Fill="{StaticResource BorderBrush}"/>
+                                        <Grid Margin="0,18,0,0"><StackPanel><TextBlock Text="이동 속도" FontSize="14" FontWeight="Medium" Foreground="{StaticResource TextBrush}"/><TextBlock Text="일반 수평 이동 속도" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBox x:Name="PMoveSpd" Style="{StaticResource ParamTextBox}" Text="30"/><TextBlock Text="%" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel></Grid>
+                                        <Border Background="{StaticResource GreenLightBrush}" CornerRadius="12" Padding="16,12" Margin="0,24,0,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Ellipse Width="6" Height="6" Fill="{StaticResource GreenBrush}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="안전 파라미터 변경 시 즉시 적용됩니다." FontSize="12" Foreground="{StaticResource GreenBrush}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                                <Grid Margin="0,20,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Style="{StaticResource SecondaryButton}" Content="기본값" Click="ResetParams_Click"/>
+                                    <Button Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="적용" Click="ApplyParams_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <!-- ═══ PANE: 모델 관리 ═══ -->
+                    <ScrollViewer x:Name="PaneModels" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="32,24,32,32">
+                            <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="18" Padding="28">
+                                <Border.Effect><DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,20">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Gaze CNN" Style="{StaticResource H2}"/>
+                                                <Border x:Name="GazeBadge" Background="{StaticResource GreenLightBrush}" CornerRadius="20" Padding="12,4" Margin="12,0,0,0" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal"><Ellipse Width="6" Height="6" Fill="{StaticResource GreenBrush}" VerticalAlignment="Center"/><TextBlock x:Name="GazeBadgeText" Text="로드됨" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource GreenBrush}" Margin="6,0,0,0"/></StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="동공 좌표 → 로봇 좌표 변환 (ONNX Runtime)" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                                            <TextBlock x:Name="GazePath" Text="gaze.onnx" FontFamily="{StaticResource MonoFont}" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,6,0,0"/>
+                                        </StackPanel>
+                                        <Button Style="{StaticResource SecondaryButton}" Content="교체" Click="LoadOnnx_Click" HorizontalAlignment="Right" VerticalAlignment="Top" Height="36" Padding="16,0"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,20"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="18,14"><StackPanel><TextBlock Text="입력" Style="{StaticResource Label}"/><TextBlock Text="px (x, y)" FontFamily="{StaticResource MonoFont}" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/></StackPanel></Border>
+                                        <Border Grid.Column="2" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="18,14"><StackPanel><TextBlock Text="출력" Style="{StaticResource Label}"/><TextBlock Text="mm (X, Y)" FontFamily="{StaticResource MonoFont}" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/></StackPanel></Border>
+                                        <Border Grid.Column="4" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="18,14"><StackPanel><TextBlock Text="학습 데이터" Style="{StaticResource Label}"/><TextBlock Text="16쌍" FontFamily="{StaticResource MonoFont}" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0"/></StackPanel></Border>
+                                    </Grid>
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Content="CNN 재학습" Click="TrainCnn_Click"/>
+                                        <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="ONNX 내보내기" Click="ExportOnnx_Click"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="18" Padding="28" Margin="0,20,0,0">
+                                <Border.Effect><DropShadowEffect Color="Black" Opacity="0.04" BlurRadius="16" ShadowDepth="2"/></Border.Effect>
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,20">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="YOLOv8" Style="{StaticResource H2}"/>
+                                                <Border x:Name="YoloBadge" Background="{StaticResource AmberLightBrush}" CornerRadius="20" Padding="12,4" Margin="12,0,0,0" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal"><Ellipse Width="6" Height="6" Fill="{StaticResource AmberBrush}" VerticalAlignment="Center"/><TextBlock x:Name="YoloBadgeText" Text="미로드" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AmberBrush}" Margin="6,0,0,0"/></StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="시험관/비커 탐지 + 집기 위치 보정" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                                            <TextBlock x:Name="YoloPath" Text="미지정" FontFamily="{StaticResource MonoFont}" FontSize="12" Foreground="{StaticResource TextDimBrush}" Margin="0,6,0,0"/>
+                                        </StackPanel>
+                                        <Button Style="{StaticResource SecondaryButton}" Content="불러오기" Click="LoadYolo_Click" HorizontalAlignment="Right" VerticalAlignment="Top" Height="36" Padding="16,0"/>
+                                    </Grid>
+                                    <TextBlock Text="데이터셋" Style="{StaticResource Label}" Margin="0,0,0,10"/>
+                                    <Grid Margin="0,0,0,20"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="10,14"><StackPanel><TextBlock Text="tube_blue" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/><TextBlock Text="200" FontFamily="{StaticResource MonoFont}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel></Border>
+                                        <Border Grid.Column="2" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="10,14"><StackPanel><TextBlock Text="tube_red" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/><TextBlock Text="200" FontFamily="{StaticResource MonoFont}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel></Border>
+                                        <Border Grid.Column="4" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="10,14"><StackPanel><TextBlock Text="funnel" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/><TextBlock Text="100" FontFamily="{StaticResource MonoFont}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AmberBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel></Border>
+                                        <Border Grid.Column="6" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="10,14"><StackPanel><TextBlock Text="beaker" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/><TextBlock Text="100" FontFamily="{StaticResource MonoFont}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AmberBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel></Border>
+                                        <Border Grid.Column="8" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="10,14"><StackPanel><TextBlock Text="hole" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/><TextBlock Text="200" FontFamily="{StaticResource MonoFont}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/></StackPanel></Border>
+                                    </Grid>
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Style="{StaticResource SecondaryButton}" Content="Roboflow 라벨링" Click="Roboflow_Click"/>
+                                        <Button Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="Google Colab 학습" Click="Colab_Click"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="16,12" Margin="0,20,0,0">
+                                <StackPanel Orientation="Horizontal"><Ellipse Width="6" Height="6" Fill="{StaticResource GreenBrush}" VerticalAlignment="Center"/><TextBlock x:Name="SbMsg" Text="준비" FontFamily="{StaticResource MonoFont}" FontSize="12" Foreground="{StaticResource TextMidBrush}" Margin="10,0,0,0" VerticalAlignment="Center"/></StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- extra pane (placeholder) -->
+                    <ScrollViewer x:Name="PaneExtra" Visibility="Collapsed"/>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
