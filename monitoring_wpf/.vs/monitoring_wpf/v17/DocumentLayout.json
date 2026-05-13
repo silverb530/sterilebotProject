@@ -1,0 +1,194 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\workspace_sterile\\monitoring_wpf\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\views\\overviewview.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\views\\overviewview.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\views\\overviewview.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\views\\overviewview.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\views\\gripperview.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\views\\gripperview.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\views\\gripperview.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\views\\gripperview.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\views\\gazeview.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\views\\gazeview.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\views\\gazeview.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\views\\gazeview.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\app.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\app.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\monitoring_wpf.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\monitoring_wpf.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|c:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\server\\flaskclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{ECB3FC9D-16FF-4AA2-BFD4-C6861957D2C4}|monitoring_wpf\\monitoring_wpf.csproj|solutionrelative:monitoring_wpf\\server\\flaskclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 3,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "GripperView.xaml",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\GripperView.xaml",
+              "RelativeDocumentMoniker": "monitoring_wpf\\Views\\GripperView.xaml",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\GripperView.xaml",
+              "RelativeToolTip": "monitoring_wpf\\Views\\GripperView.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-05-13T05:17:51.768Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "MainWindow.xaml.cs",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\MainWindow.xaml.cs",
+              "RelativeDocumentMoniker": "monitoring_wpf\\MainWindow.xaml.cs",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\MainWindow.xaml.cs",
+              "RelativeToolTip": "monitoring_wpf\\MainWindow.xaml.cs",
+              "ViewState": "AgIAABwAAAAAAAAAAAAmwC8AAAAXAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-13T05:07:10.657Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "OverviewView.xaml",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\OverviewView.xaml",
+              "RelativeDocumentMoniker": "monitoring_wpf\\Views\\OverviewView.xaml",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\OverviewView.xaml",
+              "RelativeToolTip": "monitoring_wpf\\Views\\OverviewView.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-05-13T05:18:53.689Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "MainWindow.xaml",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\MainWindow.xaml",
+              "RelativeDocumentMoniker": "monitoring_wpf\\MainWindow.xaml",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\MainWindow.xaml",
+              "RelativeToolTip": "monitoring_wpf\\MainWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-05-13T05:07:16.395Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "GripperView.xaml.cs",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\GripperView.xaml.cs",
+              "RelativeDocumentMoniker": "monitoring_wpf\\Views\\GripperView.xaml.cs",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\GripperView.xaml.cs",
+              "RelativeToolTip": "monitoring_wpf\\Views\\GripperView.xaml.cs",
+              "ViewState": "AgIAABIAAAAAAAAAAAAkwB8AAAAVAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-13T05:18:00.137Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "GazeView.xaml.cs",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\GazeView.xaml.cs",
+              "RelativeDocumentMoniker": "monitoring_wpf\\Views\\GazeView.xaml.cs",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\GazeView.xaml.cs",
+              "RelativeToolTip": "monitoring_wpf\\Views\\GazeView.xaml.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-13T05:17:16.465Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "GazeView.xaml",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\GazeView.xaml",
+              "RelativeDocumentMoniker": "monitoring_wpf\\Views\\GazeView.xaml",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\GazeView.xaml",
+              "RelativeToolTip": "monitoring_wpf\\Views\\GazeView.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-05-13T05:15:45.349Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "OverviewView.xaml.cs",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\OverviewView.xaml.cs",
+              "RelativeDocumentMoniker": "monitoring_wpf\\Views\\OverviewView.xaml.cs",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\Views\\OverviewView.xaml.cs",
+              "RelativeToolTip": "monitoring_wpf\\Views\\OverviewView.xaml.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-13T05:19:02.259Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "FlaskClient.cs",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\server\\FlaskClient.cs",
+              "RelativeDocumentMoniker": "monitoring_wpf\\server\\FlaskClient.cs",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\server\\FlaskClient.cs",
+              "RelativeToolTip": "monitoring_wpf\\server\\FlaskClient.cs",
+              "ViewState": "AgIAAE8AAAAAAAAAAAAkwFYAAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-13T05:14:44.011Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "monitoring_wpf.csproj",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\monitoring_wpf.csproj",
+              "RelativeDocumentMoniker": "monitoring_wpf\\monitoring_wpf.csproj",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\monitoring_wpf.csproj",
+              "RelativeToolTip": "monitoring_wpf\\monitoring_wpf.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-05-13T05:13:53.985Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "App.xaml",
+              "DocumentMoniker": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\App.xaml",
+              "RelativeDocumentMoniker": "monitoring_wpf\\App.xaml",
+              "ToolTip": "C:\\workspace_sterile\\monitoring_wpf\\monitoring_wpf\\App.xaml",
+              "RelativeToolTip": "monitoring_wpf\\App.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-05-13T05:08:19.215Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

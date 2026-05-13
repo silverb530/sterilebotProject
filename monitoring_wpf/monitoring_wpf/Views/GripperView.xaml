@@ -1,0 +1,165 @@
+﻿<UserControl x:Class="monitoring_wpf.Views.GripperView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 왼쪽: 카메라 + 로봇 좌표 -->
+        <StackPanel Grid.Column="0" Margin="0,0,7,0">
+            <TextBlock Style="{StaticResource SectionLabel}" Text="U20CAM — 그리퍼 카메라" Margin="0,0,0,8"/>
+            <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,12">
+                <StackPanel>
+                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,7">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="U20CAM · USB · 720P" Style="{StaticResource MidText}"/>
+                            <Border DockPanel.Dock="Right" CornerRadius="3" Padding="7,1" Background="{StaticResource TealDimBrush}">
+                                <TextBlock Text="30fps" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource TealBrush}"/>
+                            </Border>
+                        </DockPanel>
+                    </Border>
+                    <Border Height="180" Background="#070809">
+                        <Grid>
+                            <TextBlock Text="YOLOv8 탐지" FontFamily="Consolas" FontSize="9"
+                         Foreground="#44FFFFFF" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="9,7"/>
+                            <TextBlock Text="tube_blue 0.94" FontFamily="Consolas" FontSize="9"
+                         Foreground="#44FFFFFF" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,9,7"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Style="{StaticResource SectionLabel}" Text="로봇팔 좌표" Margin="0,0,0,8"/>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="위치 (mm)" Style="{StaticResource DimText}" Margin="0,0,0,8"/>
+                    <UniformGrid Rows="1" Columns="3" Margin="0,0,0,8">
+                        <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,4,0">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="X" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="RX" Text="135" FontFamily="Consolas" FontSize="20" FontWeight="Medium" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="mm" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,4,0">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="Y" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="RY" Text="-82" FontFamily="Consolas" FontSize="20" FontWeight="Medium" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="mm" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="10">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="Z" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="RZ" Text="200" FontFamily="Consolas" FontSize="20" FontWeight="Medium" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="mm" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+                    <TextBlock Text="자세 (°)" Style="{StaticResource DimText}" Margin="0,4,0,8"/>
+                    <UniformGrid Rows="1" Columns="3">
+                        <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,4,0">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="RX" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="RRX" Text="0" FontFamily="Consolas" FontSize="20" FontWeight="Medium" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="°" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,4,0">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="RY" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="RRY" Text="0" FontFamily="Consolas" FontSize="20" FontWeight="Medium" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="°" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="10">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="RZ" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="RRZ" Text="0" FontFamily="Consolas" FontSize="20" FontWeight="Medium" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="°" Style="{StaticResource DimText}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- 오른쪽: 제어 + 그리퍼 + 연결 상태 -->
+        <StackPanel Grid.Column="1" Margin="7,0,0,0">
+            <TextBlock Style="{StaticResource SectionLabel}" Text="제어" Margin="0,0,0,8"/>
+            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Button Content="⬛  긴급정지" Style="{StaticResource EstopButton}" Click="EstopBtn_Click"/>
+                    <TextBlock Text="키보드 SPACE" FontFamily="Consolas" FontSize="10"
+                     Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center" Margin="0,8,0,8"/>
+                    <UniformGrid Rows="2" Columns="2">
+                        <Button Content="홈 복귀"    Style="{StaticResource CtrlButton}" Margin="0,0,4,4" Click="HomeBtn_Click"/>
+                        <Button Content="상태 초기화" Style="{StaticResource CtrlButton}" Margin="4,0,0,4" Click="ResetBtn_Click"/>
+                        <Button Content="재연결"     Style="{StaticResource CtrlButton}" Margin="0,0,4,0" Click="ReconnectBtn_Click"/>
+                        <Button Content="FSM 리셋"  Style="{StaticResource CtrlButton}" Margin="4,0,0,0" Click="FsmResetBtn_Click"/>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Style="{StaticResource SectionLabel}" Text="그리퍼" Margin="0,0,0,8"/>
+            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}"
+                  BorderThickness="1" CornerRadius="5" Padding="12,10" Margin="0,0,0,8">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="현재 상태" Style="{StaticResource DimText}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="GripState" DockPanel.Dock="Right" Text="열림"
+                         FontFamily="Consolas" FontSize="13" FontWeight="Medium"
+                         Foreground="{StaticResource TealBrush}" HorizontalAlignment="Right"/>
+                        </DockPanel>
+                    </Border>
+                    <UniformGrid Rows="1" Columns="2" Margin="0,0,0,8">
+                        <Button Content="열기"       Style="{StaticResource CtrlButton}" Margin="0,0,4,0" Click="GripOpen_Click"/>
+                        <Button Content="닫기 (집기)" Style="{StaticResource CtrlButton}" Margin="4,0,0,0" Click="GripClose_Click"/>
+                    </UniformGrid>
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,0,0,8"/>
+                    <Button x:Name="GazeTogBtn" Content="시선 제어 활성화"
+                  Style="{StaticResource CtrlButton}" Padding="0,11" Click="GazeToggle_Click"/>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Style="{StaticResource SectionLabel}" Text="연결 상태" Margin="0,0,0,8"/>
+            <Border Style="{StaticResource Card}" Padding="10,12">
+                <StackPanel>
+                    <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10,7" Margin="0,0,0,5">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="myCobot Pi" Style="{StaticResource MidText}"/>
+                            <TextBlock DockPanel.Dock="Right" Text="● 연결" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource TealBrush}"/>
+                        </DockPanel>
+                    </Border>
+                    <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10,7" Margin="0,0,0,5">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="C++ 소켓" Style="{StaticResource MidText}"/>
+                            <TextBlock DockPanel.Dock="Right" Text="● 연결" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource TealBrush}"/>
+                        </DockPanel>
+                    </Border>
+                    <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10,7" Margin="0,0,0,5">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="OV9281" Style="{StaticResource MidText}"/>
+                            <TextBlock DockPanel.Dock="Right" Text="● 60fps" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource TealBrush}"/>
+                        </DockPanel>
+                    </Border>
+                    <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10,7" Margin="0,0,0,5">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="U20CAM" Style="{StaticResource MidText}"/>
+                            <TextBlock DockPanel.Dock="Right" Text="● 30fps" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource TealBrush}"/>
+                        </DockPanel>
+                    </Border>
+                    <Border Background="{StaticResource Surface2Brush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="10,7">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="YOLOv8" Style="{StaticResource MidText}"/>
+                            <TextBlock DockPanel.Dock="Right" Text="● 대기" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource AmberBrush}"/>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>
