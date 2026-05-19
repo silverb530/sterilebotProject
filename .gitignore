@@ -26,3 +26,53 @@ manager/.vs/
 .DS_Store
 Thumbs.db
 *.log
+
+
+
+
+
+
+
+# ── WPF ──────────────── 
+
+
+# ── 빌드 출력 ──
+bin/
+obj/
+
+# ── Visual Studio ──
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docview
+
+# ── 빌드 캐시 / 메타데이터 ──
+*.v2
+*.dtbcache.v2
+*.futdcache.v2
+*.metadata.v9.bin
+*.projects.v9.bin
+*.strings.v9.bin
+*.nuget.dgspec.json
+*.backup.json
+DocumentLayout.json
+DocumentLayout.backup.json
+DesignTimeBuild/
+ProjectEvaluation/
+v17/
+
+# ── .NET 빌드 결과물 ──
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+
+# ── NuGet ──
+*.nupkg
+packages/
+.nuget/
+
+# ── node_modules ──
+node_modules/

@@ -28,13 +28,18 @@ namespace monitoring_wpf.Services
 
     public class FlaskState
     {
-        [JsonPropertyName("fsm")] public string Fsm { get; set; } = "IDLE";
-        [JsonPropertyName("ear")] public double Ear { get; set; }
-        [JsonPropertyName("gaze")] public GazeData Gaze { get; set; } = new();
-        [JsonPropertyName("dwell")] public double Dwell { get; set; }
-        [JsonPropertyName("robot")] public RobotData Robot { get; set; } = new();
-        [JsonPropertyName("gripper")] public string Gripper { get; set; } = "open";
-        [JsonPropertyName("gaze_enabled")] public bool GazeEnabled { get; set; } = true;
+        [JsonPropertyName("fsm")]          public string Fsm         { get; set; } = "IDLE";
+        [JsonPropertyName("ear")]          public double Ear         { get; set; }
+        [JsonPropertyName("gaze")]         public GazeData Gaze      { get; set; } = new();
+        [JsonPropertyName("dwell")]        public double Dwell       { get; set; }
+        [JsonPropertyName("robot")]        public RobotData Robot    { get; set; } = new();
+        [JsonPropertyName("gripper")]      public string Gripper     { get; set; } = "open";
+        [JsonPropertyName("gaze_enabled")] public bool GazeEnabled   { get; set; } = true;
+        [JsonPropertyName("gas")]          public double Gas         { get; set; } = 50;
+        [JsonPropertyName("temp")]         public double Temp        { get; set; } = 27;
+        [JsonPropertyName("humidity")]     public double Humidity    { get; set; } = 30;
+        [JsonPropertyName("status_text")]  public string StatusText  { get; set; } = "안전";
+        [JsonPropertyName("user")]         public string User        { get; set; } = "김수영 연구원";
     }
 
     public class FlaskClient : IDisposable

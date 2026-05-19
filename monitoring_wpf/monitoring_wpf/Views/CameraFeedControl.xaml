@@ -1,0 +1,28 @@
+<UserControl x:Class="monitoring_wpf.Views.CameraFeedControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="#070C14">
+        <!-- 카메라 피드 -->
+        <Image x:Name="FeedImage" Stretch="UniformToFill"/>
+
+        <!-- 카메라 없을 때 플레이스홀더 -->
+        <StackPanel x:Name="NoSignal" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <Ellipse Width="52" Height="52" HorizontalAlignment="Center" Margin="0,0,0,10">
+                <Ellipse.Fill>
+                    <SolidColorBrush Color="#1A3358"/>
+                </Ellipse.Fill>
+            </Ellipse>
+            <Path HorizontalAlignment="Center" Canvas.ZIndex="1"
+                  Margin="0,-42,0,0" Fill="#2B5080">
+                <!-- 카메라 아이콘 형태 (삼각형 렌즈 + 몸통) -->
+                <Path.Data>M -14,-8 L -14,8 L 14,8 L 14,-8 Z M 14,0 L 24,-7 L 24,7 Z</Path.Data>
+                <Path.RenderTransform>
+                    <TranslateTransform X="26" Y="26"/>
+                </Path.RenderTransform>
+            </Path>
+            <TextBlock x:Name="NoSignalText" Text="카메라 신호 없음"
+                       FontFamily="Segoe UI" FontSize="13"
+                       Foreground="#2A4060" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+        </StackPanel>
+    </Grid>
+</UserControl>
