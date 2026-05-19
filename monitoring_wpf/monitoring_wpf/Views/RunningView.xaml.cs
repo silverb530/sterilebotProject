@@ -17,16 +17,9 @@ namespace monitoring_wpf.Views
         private bool _isPaused    = false;
         private readonly DispatcherTimer _clock = new();
 
-        // ── 카메라 인덱스 ──────────────────────────
-        // CAM 0 = 실험실 조감캠
-        // CAM 1 = 로봇암 카메라
-        // 실제 장치 순서가 다르면 여기서 수정
         private const int LabCamIndex = 0;
         private const int ArmCamIndex = 1;
 
-        // ── PIP 상태 ──────────────────────────────
-        // true  → MainCam = 조감캠, PipCam = 로봇암
-        // false → MainCam = 로봇암, PipCam = 조감캠
         private bool _labIsMain = true;
 
         public RunningView()
@@ -39,22 +32,12 @@ namespace monitoring_wpf.Views
 
             IsVisibleChanged += (_, _) =>
             {
-                if (IsVisible)
-                    StartCameras();
-                else
-                    StopCameras();
+                if (IsVisible) StartCameras();
+                else           StopCameras();
             };
         }
 
-        // ══════════════════════════════════════════
-        // 카메라 시작 / 정지
-        // ══════════════════════════════════════════
-
-        private void StartCameras()
-        {
-            // _labIsMain 상태에 따라 메인/PIP 역할 결정
-            ApplyCameraLayout();
-        }
+        private void StartCameras() => ApplyCameraLayout();
 
         private void StopCameras()
         {
@@ -62,18 +45,15 @@ namespace monitoring_wpf.Views
             PipCam.Stop();
         }
 
-        /// <summary>
-        /// 현재 _labIsMain 값에 따라 카메라 인덱스와 라벨을 적용합니다.
-        /// </summary>
         private void ApplyCameraLayout()
         {
-            int mainIdx   = _labIsMain ? LabCamIndex : ArmCamIndex;
-            int pipIdx    = _labIsMain ? ArmCamIndex : LabCamIndex;
+            int mainIdx    = _labIsMain ? LabCamIndex : ArmCamIndex;
+            int pipIdx     = _labIsMain ? ArmCamIndex : LabCamIndex;
             string mainLbl = _labIsMain ? "실험실 조감캠" : "로봇암 카메라";
             string pipLbl  = _labIsMain ? "로봇암 카메라" : "실험실 조감캠";
             Color mainDot  = _labIsMain
-                ? Color.FromRgb(0x4A, 0xDE, 0x80)   // 초록
-                : Color.FromRgb(0xFB, 0x92, 0x3C);  // 주황
+                ? Color.FromRgb(0x4A, 0xDE, 0x80)
+                : Color.FromRgb(0xFB, 0x92, 0x3C);
             Color pipDot   = _labIsMain
                 ? Color.FromRgb(0xFB, 0x92, 0x3C)
                 : Color.FromRgb(0x4A, 0xDE, 0x80);
@@ -89,26 +69,25 @@ namespace monitoring_wpf.Views
             PipDot.Fill        = new SolidColorBrush(pipDot);
         }
 
-        /// <summary>메인 ↔ PIP 스왑</summary>
         private void SwapCameras()
         {
             _labIsMain = !_labIsMain;
             ApplyCameraLayout();
         }
 
-        // ══════════════════════════════════════════
-        // 클릭 핸들러
-        // ══════════════════════════════════════════
-
+        // ── 클릭 핸들러 ──────────────────────────────
+        // 큰 화면(MainCam)은 클릭해도 아무 동작 없음
         private void MainCam_Click(object s, System.Windows.Input.MouseButtonEventArgs e)
-            => SwapCameras();
+        {
+            // 아무것도 하지 않음 — 큰 화면 클릭 비활성화
+        }
 
+        // 작은 PIP 화면만 클릭 시 전환
         private void PipCam_Click(object s, System.Windows.Input.MouseButtonEventArgs e)
             => SwapCameras();
 
         // ══════════════════════════════════════════
         // 비상 / 정상 전환
-        // 카메라는 비상 중에도 계속 캡처 유지
         // ══════════════════════════════════════════
         public void SetEmergency(bool emergency)
         {
@@ -124,12 +103,12 @@ namespace monitoring_wpf.Views
                 BadgeFg.Color       = Color.FromRgb(0xEF, 0x44, 0x44);
                 BadgeText.Text      = "비상상황 — 중지";
 
-                EstopBorder.Background = new SolidColorBrush(Color.FromRgb(0x7F, 0x1D, 0x1D));
+                EstopBorder.Background  = new SolidColorBrush(Color.FromRgb(0x7F, 0x1D, 0x1D));
                 EstopBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFE, 0xCA, 0xCA));
-                EstopIcon.Foreground   = new SolidColorBrush(Colors.White);
-                EstopIcon.Text         = "✓";
-                EstopLabel.Foreground  = new SolidColorBrush(Colors.White);
-                EstopLabel.Text        = "정지 해제";
+                EstopIcon.Foreground    = new SolidColorBrush(Colors.White);
+                EstopIcon.Text          = "✓";
+                EstopLabel.Foreground   = new SolidColorBrush(Colors.White);
+                EstopLabel.Text         = "정지 해제";
 
                 StatusChip.Background  = new SolidColorBrush(Color.FromRgb(0xFE, 0xF2, 0xF2));
                 StatusChip.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFC, 0xA5, 0xA5));
@@ -171,7 +150,6 @@ namespace monitoring_wpf.Views
             TempVal.Text = $"{state.Temp:F1}";
             HumVal.Text  = $"{state.Humidity:F0}";
 
-            // 가스 농도 색상 경고
             GasVal.Foreground = state.Gas > 80
                 ? new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26))
                 : state.Gas > 50

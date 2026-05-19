@@ -15,9 +15,6 @@ namespace monitoring_wpf.Views
 
         private readonly DispatcherTimer _clock = new();
 
-        // ── 카메라 인덱스 (필요 시 여기서 수정) ──
-        // CAM 0: 실험실 조감캠 (작업대 전체 뷰)
-        // CAM 1: 로봇암 카메라 (그리퍼 시점)
         private const int LabCamIndex = 0;
         private const int ArmCamIndex = 1;
 
@@ -33,6 +30,10 @@ namespace monitoring_wpf.Views
             {
                 if (IsVisible)
                 {
+                    // ★ 인증된 연구원 이름 표시
+                    if (!string.IsNullOrEmpty(MainWindow.AuthName))
+                        UserLabel.Text = $"{MainWindow.AuthName} {MainWindow.AuthRole}";
+
                     LabCam.Start(cameraIndex: LabCamIndex, noSignalLabel: "조감 카메라 대기 중");
                     ArmCam.Start(cameraIndex: ArmCamIndex, noSignalLabel: "로봇암 카메라 대기 중");
                 }
@@ -57,7 +58,10 @@ namespace monitoring_wpf.Views
         public void UpdateState(FlaskState state)
         {
             SetConnected(true);
-            UserLabel.Text = state.User;
+
+            // 인증된 이름 우선 표시, 없으면 Flask state 사용
+            if (string.IsNullOrEmpty(MainWindow.AuthName))
+                UserLabel.Text = state.User;
 
             StatusLabel.Text =
                 $"가스농도  {state.Gas:F0} ppm    " +

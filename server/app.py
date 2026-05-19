@@ -2,16 +2,37 @@
 ChemiBot — Flask API 서버 (통합)
 - REST API + SSE: 모니터링 WPF (HTTP 폴링)
 - 관리자 기능: 연구원 관리 / 실험 이력 / 시스템 설정
+- 안면인식: 얼굴 등록 / 로그인 인증 (MySQL + face_recognition)
 - React 빌드 서빙: manager_web/dist/
 """
 
 from flask import Flask, jsonify, request, Response, send_from_directory
 from flask_cors import CORS
 from datetime import datetime
-import json, time, random, threading, os
+import json, time, random, threading, os, io, pickle
+
+import face_recognition
+import mysql.connector
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
+
+
+# ══════════════════════════════════════════════════════════════════
+#  0. MySQL 연결
+# ══════════════════════════════════════════════════════════════════
+DB_CONFIG = {
+    "host":     "localhost",
+    "user":     "root",
+    "password": "1111",
+    "database": "sterilebot",
+    "charset":  "utf8mb4",
+}
+
+def get_db():
+    return mysql.connector.connect(**DB_CONFIG)
+
 
 # ══════════════════════════════════════════════════════════════════
 #  1. 실시간 상태 (WPF 모니터링용)
@@ -123,7 +144,151 @@ def calib():
 
 
 # ══════════════════════════════════════════════════════════════════
-#  2. 관리자 기능
+#  2. 안면인식 — 얼굴 등록 / 로그인
+# ══════════════════════════════════════════════════════════════════
+
+@app.route("/api/researchers/<int:rid>/face", methods=["POST"])
+def register_face(rid):
+    """
+    React 관리자 화면에서 호출.
+    Body: JPEG raw bytes (Content-Type: image/jpeg)
+    - 얼굴 벡터 추출 → MySQL researcher.face_data 저장
+    - data.json face_registered 플래그도 업데이트
+    """
+    img_bytes = request.data
+    if not img_bytes:
+        return jsonify({"error": "이미지 데이터가 없습니다"}), 400
+
+    # 얼굴 벡터 추출
+    try:
+        img = face_recognition.load_image_file(io.BytesIO(img_bytes))
+        encodings = face_recognition.face_encodings(img)
+    except Exception as e:
+        return jsonify({"error": f"이미지 처리 실패: {str(e)}"}), 400
+
+    if not encodings:
+        return jsonify({"error": "얼굴을 감지하지 못했습니다. 정면을 바라봐 주세요."}), 400
+
+    # 기존 벡터 가져와서 리스트에 추가 (다중 등록)
+    try:
+        db = get_db(); cur = db.cursor()
+        cur.execute("SELECT face_data FROM researcher WHERE id=%s", (rid,))
+        row = cur.fetchone()
+        existing = []
+        if row and row[0]:
+            existing = pickle.loads(row[0])
+            if not isinstance(existing, list):
+                existing = [existing]
+        db.close()
+    except Exception:
+        existing = []
+
+    existing.append(encodings[0])
+    encoding_blob = pickle.dumps(existing)
+
+    # MySQL 저장
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "UPDATE researcher SET face_data=%s, face_registered_at=NOW(), updated_at=NOW() WHERE id=%s",
+            (encoding_blob, rid)
+        )
+        affected = cur.rowcount
+        db.commit()
+        db.close()
+    except Exception as e:
+        return jsonify({"error": f"DB 저장 실패: {str(e)}"}), 500
+
+    if affected == 0:
+        return jsonify({"error": "해당 연구원을 찾을 수 없습니다"}), 404
+
+    # data.json 플래그 업데이트 (React 목록 표시용)
+    data = load_data()
+    for r in data["researchers"]:
+        if r["id"] == rid:
+            r["face_registered"] = True
+            save_data(data)
+            return jsonify({"ok": True, "researcher": r})
+
+    # data.json에 없는 경우에도 성공 반환
+    return jsonify({"ok": True, "id": rid})
+
+
+@app.route("/api/face/login", methods=["POST"])
+def face_login():
+    """
+    WPF 로그인 창에서 호출.
+    Body: JPEG raw bytes (Content-Type: image/jpeg)
+    Response:
+      성공 → {"ok": true, "name": "김수영", "role": "연구원", "confidence": 98.4}
+      실패 → {"ok": false, "reason": "인증 실패"}
+    """
+    img_bytes = request.data
+    if not img_bytes:
+        return jsonify({"ok": False, "reason": "이미지 데이터 없음"}), 400
+
+    # 얼굴 벡터 추출
+    try:
+        img = face_recognition.load_image_file(io.BytesIO(img_bytes))
+        encodings = face_recognition.face_encodings(img)
+    except Exception as e:
+        return jsonify({"ok": False, "reason": f"이미지 처리 실패: {str(e)}"}), 400
+
+    if not encodings:
+        return jsonify({"ok": False, "reason": "얼굴 없음", "retry": True})
+
+    target = encodings[0]
+
+    # MySQL에서 등록된 벡터 전체 가져오기
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        cur.execute(
+            "SELECT id, name, role, face_data FROM researcher "
+            "WHERE face_data IS NOT NULL AND is_active = 1"
+        )
+        rows = cur.fetchall()
+        db.close()
+    except Exception as e:
+        return jsonify({"ok": False, "reason": f"DB 조회 실패: {str(e)}"}), 500
+
+    if not rows:
+        return jsonify({"ok": False, "reason": "등록된 얼굴이 없습니다"})
+
+    # 유사도 비교 (distance < 0.02 → 신뢰도 98% 이상)
+    best_match = None
+    best_dist  = 1.0
+
+    for row in rows:
+        stored = pickle.loads(row["face_data"])
+        if not isinstance(stored, list):
+            stored = [stored]
+        try:
+            distances = face_recognition.face_distance(stored, target)
+            dist = float(np.mean(distances))  # 평균값으로 안정적 인식
+            if dist < best_dist:
+                best_dist  = dist
+                best_match = row
+        except Exception:
+            continue  # 손상된 벡터는 건너뜀
+
+    THRESHOLD = 0.4  # 신뢰도 60% 이상만 통과 (distance 0.4 이하)
+    if best_match and best_dist < THRESHOLD:
+        confidence = round((1 - best_dist) * 100, 1)
+        return jsonify({
+            "ok":         True,
+            "id":         best_match["id"],
+            "name":       best_match["name"],
+            "role":       best_match["role"],
+            "confidence": confidence,
+        })
+
+    return jsonify({"ok": False, "reason": "인증 실패", "retry": False})
+
+
+# ══════════════════════════════════════════════════════════════════
+#  3. 관리자 기능 (data.json 기반)
 # ══════════════════════════════════════════════════════════════════
 DATA_FILE = "data.json"
 
@@ -161,27 +326,59 @@ def get_researchers(): return jsonify(load_data()["researchers"])
 @app.route("/api/researchers", methods=["POST"])
 def add_researcher():
     data = load_data(); b = request.json
-    nid = max([r["id"] for r in data["researchers"]], default=0) + 1
-    r = {"id":nid,"name":b["name"],"role":b.get("role","연구원"),"face_registered":False,"created":datetime.now().strftime("%Y-%m-%d")}
-    data["researchers"].append(r); save_data(data); return jsonify(r)
+    name = b["name"]; role = b.get("role", "연구원")
+
+    # MySQL에 먼저 INSERT → auto_increment id 받아오기
+    db_role = "admin" if role == "관리자" else "researcher"
+    try:
+        db = get_db(); cur = db.cursor()
+        cur.execute(
+            "INSERT INTO researcher (name, role, created_at, updated_at, is_active) "
+            "VALUES (%s, %s, NOW(), NOW(), 1)",
+            (name, db_role)
+        )
+        nid = cur.lastrowid   # MySQL이 발급한 id 사용
+        db.commit(); db.close()
+    except Exception as e:
+        print(f"[WARN] MySQL INSERT 실패: {e}")
+        nid = max([r["id"] for r in data["researchers"]], default=0) + 1
+
+    r = {"id": nid, "name": name, "role": role,
+         "face_registered": False, "created": datetime.now().strftime("%Y-%m-%d")}
+    data["researchers"].append(r); save_data(data)
+    return jsonify(r)
 
 @app.route("/api/researchers/<int:rid>", methods=["PUT"])
 def update_researcher(rid):
-    data = load_data()
+    data = load_data(); b = request.json
     for r in data["researchers"]:
-        if r["id"] == rid: r.update(request.json); save_data(data); return jsonify(r)
-    return jsonify({"error":"not found"}), 404
+        if r["id"] == rid:
+            r.update(b); save_data(data)
+            try:
+                db = get_db(); cur = db.cursor()
+                db_role = "admin" if r["role"] == "관리자" else "researcher"
+                cur.execute(
+                    "UPDATE researcher SET name=%s, role=%s, updated_at=NOW() WHERE id=%s",
+                    (r["name"], db_role, rid)
+                )
+                db.commit(); db.close()
+            except Exception as e:
+                print(f"[WARN] MySQL UPDATE 실패: {e}")
+            return jsonify(r)
+    return jsonify({"error": "not found"}), 404
 
 @app.route("/api/researchers/<int:rid>", methods=["DELETE"])
 def delete_researcher(rid):
-    data = load_data(); data["researchers"] = [r for r in data["researchers"] if r["id"] != rid]; save_data(data); return jsonify({"ok":True})
-
-@app.route("/api/researchers/<int:rid>/face", methods=["POST"])
-def register_face(rid):
     data = load_data()
-    for r in data["researchers"]:
-        if r["id"] == rid: r["face_registered"] = True; save_data(data); return jsonify(r)
-    return jsonify({"error":"not found"}), 404
+    data["researchers"] = [r for r in data["researchers"] if r["id"] != rid]
+    save_data(data)
+    try:
+        db = get_db(); cur = db.cursor()
+        cur.execute("DELETE FROM researcher WHERE id=%s", (rid,))
+        db.commit(); db.close()
+    except Exception as e:
+        print(f"[WARN] MySQL DELETE 실패: {e}")
+    return jsonify({"ok": True})
 
 @app.route("/api/usage")
 def get_usage(): return jsonify(load_data()["usage_logs"])
@@ -209,8 +406,9 @@ def get_dashboard():
         "recent_errors":data["error_logs"][-5:][::-1],
     })
 
+
 # ══════════════════════════════════════════════════════════════════
-#  3. React 빌드 서빙
+#  4. React 빌드 서빙
 # ══════════════════════════════════════════════════════════════════
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
@@ -223,11 +421,14 @@ def serve_react(path):
         return send_from_directory(dist, "index.html")
     return jsonify({"message":"개발 중: npm run dev (localhost:3000) 로 접속","api":"Flask API 정상 (localhost:5000)"}), 200
 
+
 if __name__ == "__main__":
     print("=" * 50)
     print("ChemiBot 통합 서버")
     print("  관리자 React: http://localhost:3000 (npm run dev)")
     print("  Flask API:    http://localhost:5000")
     print("  WPF 폴링:     http://localhost:5000/api/state")
+    print("  얼굴 등록:    POST /api/researchers/{id}/face")
+    print("  얼굴 로그인:  POST /api/face/login")
     print("=" * 50)
     app.run(host="0.0.0.0", port=5000, threaded=True)

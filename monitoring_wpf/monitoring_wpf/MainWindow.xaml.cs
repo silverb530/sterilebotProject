@@ -8,6 +8,10 @@ namespace monitoring_wpf
     {
         private readonly FlaskClient _flask = new("http://localhost:5000");
 
+        // 인증된 연구원 정보
+        public static string AuthName { get; set; } = "";
+        public static string AuthRole { get; set; } = "";
+
         public MainWindow()
         {
             InitializeComponent();
@@ -22,6 +26,9 @@ namespace monitoring_wpf
             ViewRunning.OnEmergencyStop  = () => ViewRunning.SetEmergency(true);
             ViewRunning.OnResume         = () => ViewRunning.SetEmergency(false);
             ViewRunning.OnExit           = () => Navigate("main");
+
+            // 얼굴 인증 화면으로 시작
+            Navigate("faceauth");
         }
 
         private void Navigate(string view)

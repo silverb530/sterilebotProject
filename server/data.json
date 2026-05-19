@@ -2,38 +2,17 @@
   "researchers": [
     {
       "id": 1,
-      "name": "김규대",
-      "role": "관리자",
-      "face_registered": true,
-      "created": "2026-05-12"
-    },
-    {
-      "id": 2,
-      "name": "김메리",
+      "name": "김수영",
       "role": "연구원",
       "face_registered": true,
-      "created": "2026-05-12"
+      "created": "2026-05-19"
     },
     {
       "id": 3,
-      "name": "정서현",
+      "name": "정지수",
       "role": "연구원",
       "face_registered": true,
-      "created": "2026-05-12"
-    },
-    {
-      "id": 4,
-      "name": "강비비",
-      "role": "연구원",
-      "face_registered": true,
-      "created": "2026-05-12"
-    },
-    {
-      "id": 5,
-      "name": "감만잔",
-      "role": "연구원",
-      "face_registered": false,
-      "created": "2026-05-18"
+      "created": "2026-05-19"
     }
   ],
   "usage_logs": [
