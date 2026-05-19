@@ -61,6 +61,8 @@ DocumentLayout.backup.json
 DesignTimeBuild/
 ProjectEvaluation/
 v17/
+**/bin/
+**/obj/
 
 # ── .NET 빌드 결과물 ──
 *.dll

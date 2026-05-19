@@ -1,0 +1,118 @@
+{
+  "researchers": [
+    {
+      "id": 1,
+      "name": "김규대",
+      "role": "관리자",
+      "face_registered": true,
+      "created": "2026-05-12"
+    },
+    {
+      "id": 2,
+      "name": "김메리",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-12"
+    },
+    {
+      "id": 3,
+      "name": "정서현",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-12"
+    },
+    {
+      "id": 4,
+      "name": "강비비",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-12"
+    },
+    {
+      "id": 5,
+      "name": "감만잔",
+      "role": "연구원",
+      "face_registered": false,
+      "created": "2026-05-18"
+    }
+  ],
+  "usage_logs": [
+    {
+      "id": 1,
+      "date": "2026-05-13",
+      "researcher": "김수영",
+      "start": "14:00",
+      "end": "14:35",
+      "status": "완료"
+    },
+    {
+      "id": 2,
+      "date": "2026-05-13",
+      "researcher": "정서현",
+      "start": "15:00",
+      "end": "15:20",
+      "status": "완료"
+    },
+    {
+      "id": 3,
+      "date": "2026-05-14",
+      "researcher": "김규대",
+      "start": "10:00",
+      "end": "10:45",
+      "status": "완료"
+    },
+    {
+      "id": 4,
+      "date": "2026-05-14",
+      "researcher": "김수영",
+      "start": "11:00",
+      "end": "11:15",
+      "status": "비상정지"
+    },
+    {
+      "id": 5,
+      "date": "2026-05-15",
+      "researcher": "정서현",
+      "start": "09:00",
+      "end": "09:50",
+      "status": "완료"
+    }
+  ],
+  "error_logs": [
+    {
+      "id": 1,
+      "date": "2026-05-14",
+      "time": "11:12:34",
+      "researcher": "김수영",
+      "type": "비상정지",
+      "desc": "이중 깜빡임으로 긴급정지 발동"
+    },
+    {
+      "id": 2,
+      "date": "2026-05-13",
+      "time": "14:28:11",
+      "researcher": "김수영",
+      "type": "안전반경초과",
+      "desc": "좌표 (280,-50,150) 안전 반경 260mm 초과"
+    },
+    {
+      "id": 3,
+      "date": "2026-05-13",
+      "time": "15:15:02",
+      "researcher": "정서현",
+      "type": "연결끊김",
+      "desc": "myCobot Pi 연결 해제됨"
+    }
+  ],
+  "settings": {
+    "robot_ip": "192.168.0.20",
+    "socket_port": "9001",
+    "flask_port": "5000",
+    "gas_warn": "100",
+    "gas_danger": "200",
+    "temp_min": "18",
+    "temp_max": "28",
+    "humid_min": "30",
+    "humid_max": "60"
+  }
+}
