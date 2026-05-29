@@ -76,3 +76,4 @@ zone_data.json
 .DS_Store
 Thumbs.db
 *.log
+*.zip
