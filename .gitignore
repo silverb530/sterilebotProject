@@ -78,3 +78,23 @@ packages/
 
 # ── node_modules ──
 node_modules/
+
+
+
+# ── gesture_learning ──────────────────
+.venv311/
+.venv*/
+
+# 캘리브레이션 데이터 (개인 설정)
+calib_data/
+
+# 로봇 궤적 JSON (Pi에서 생성)
+tube_pickups.json
+tube_drops.json
+
+# config
+config.json
+
+# zone 데이터 (PC마다 다름)
+zone_data.json
+

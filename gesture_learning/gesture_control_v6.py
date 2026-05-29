@@ -1,9 +1,6 @@
 """
 ChemiBot — MediaPipe 손동작 제어 v6
 특징 추출(거리 기반) + ML 학습 + 실시간 추론
-제스처 8개:
-  1,2,3,4 / 잡기(주먹) / 붓기(엄지) / 놓기(엄지+검지) / 흔들기(엄지+새끼)
-정지: 손 안 보이면 자동
 """
 
 import cv2
@@ -13,9 +10,10 @@ import math
 import time
 import pickle
 import os
+import socket
+import json
+import threading
 from collections import Counter
-# from pymycobot.mycobot import MyCobot
-
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
@@ -23,20 +21,48 @@ from sklearn.metrics import accuracy_score, classification_report
 CAMERA_ID    = 0
 CAM_W, CAM_H = 640, 480
 ROBOT_Z_DEFAULT = 200
-ROBOT_SPEED = 20
 GESTURE_HOLD_TIME = 0.5
 POUR_ANGLE_THRESHOLD = 25
 SAMPLES_PER_GESTURE = 200
 MODEL_PATH = "models/gesture_model_v6.pkl"
 
-# mc = MyCobot('192.168.0.20', 9000); time.sleep(1)
+# ── zone_tracker 소켓 송신 ──
+ZONE_TRACKER_HOST = "127.0.0.1"
+ZONE_TRACKER_PORT = 9003
+zone_sock = None
+
+def connect_zone_tracker():
+    global zone_sock
+    try:
+        zone_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        zone_sock.connect((ZONE_TRACKER_HOST, ZONE_TRACKER_PORT))
+        print(f"[INFO] zone_tracker 연결됨 (포트 {ZONE_TRACKER_PORT})")
+    except Exception:
+        zone_sock = None
+        print(f"[WARN] zone_tracker 연결 실패")
+
+def send_gesture(gesture):
+    global zone_sock
+    if zone_sock is None:
+        return
+    try:
+        msg = {"gesture": gesture}
+        if gesture in ("1","2","3","4"):
+            msg["finger"] = int(gesture)
+            msg["action"] = None
+        else:
+            msg["finger"] = None
+            msg["action"] = gesture
+        data = json.dumps(msg) + "\n"
+        zone_sock.sendall(data.encode())
+    except Exception:
+        zone_sock = None
 
 mp_hands = mp.solutions.hands
 mp_draw  = mp.solutions.drawing_utils
 hands    = mp_hands.Hands(static_image_mode=False, max_num_hands=1,
                           min_detection_confidence=0.7, min_tracking_confidence=0.6)
 
-# ── 한글 폰트 ──
 USE_PIL = False
 font_large = font_mid = font_small = None
 try:
@@ -60,87 +86,46 @@ def put_text(frame, text, pos, font=None, color=(255,255,255)):
 
 
 # ══════════════════════════════════════════════════════════════════
-#  특징 추출 — 거리 기반 (회전 불변)
+#  특징 추출
 # ══════════════════════════════════════════════════════════════════
 def dist(a, b):
     return math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2)
 
 def extract_features(lm):
-    """
-    랜드마크 → 16개 특징값 추출 (회전 불변)
-
-    [thumb_ratio, thumb_open,                          # 엄지 기본
-     thumb_to_mid, thumb_to_wrist, thumb_to_midtip,    # 엄지 추가 (POUR vs GRAB 구분)
-     index_ratio, index_open,
-     middle_ratio, middle_open,
-     ring_ratio, ring_open,
-     pinky_ratio, pinky_open,
-     thumb_index_spread, thumb_pinky_spread,            # 손가락 벌림
-     hand_tilt]                                         # 기울기
-    """
     hand_size = dist(lm[0], lm[9])
     if hand_size < 0.01:
         return [0.0] * 16
-
     features = []
-
-    # ── 엄지 기본 ──
     thumb_tip = dist(lm[4], lm[5]) / (hand_size + 1e-6)
     thumb_ref = dist(lm[3], lm[5]) / (hand_size + 1e-6)
     thumb_ratio = thumb_tip / (thumb_ref + 1e-6)
     thumb_open = min(1.0, max(0.0, (thumb_ratio - 0.8) / 0.8))
     features.extend([thumb_ratio, thumb_open])
-
-    # ── 엄지 추가 (POUR vs GRAB 핵심) ──
-    # 엄지 tip → 중지 MCP(9): GRAB이면 가깝고, POUR이면 멀다
-    thumb_to_mid = dist(lm[4], lm[9]) / (hand_size + 1e-6)
-    # 엄지 tip → 손목(0): POUR이면 더 멀다
-    thumb_to_wrist = dist(lm[4], lm[0]) / (hand_size + 1e-6)
-    # 엄지 tip → 중지 tip(12): GRAB이면 엄지가 감겨서 가깝고, POUR이면 멀다
+    thumb_to_mid    = dist(lm[4], lm[9])  / (hand_size + 1e-6)
+    thumb_to_wrist  = dist(lm[4], lm[0])  / (hand_size + 1e-6)
     thumb_to_midtip = dist(lm[4], lm[12]) / (hand_size + 1e-6)
     features.extend([thumb_to_mid, thumb_to_wrist, thumb_to_midtip])
-
-    # ── 검지~새끼 ──
     for tip, pip, mcp in [(8,6,5), (12,10,9), (16,14,13), (20,18,17)]:
         tip_d = dist(lm[tip], lm[mcp])
         pip_d = dist(lm[pip], lm[mcp])
         ratio = tip_d / (pip_d + 1e-6)
         openness = min(1.0, max(0.0, (ratio - 0.8) / 1.2))
         features.extend([ratio, openness])
-
-    # ── 손가락 간 벌림 ──
-    # 엄지-검지 벌림: RELEASE(엄지+검지) 구분에 도움
-    thumb_index_spread = dist(lm[4], lm[8]) / (hand_size + 1e-6)
-    # 엄지-새끼 벌림: SHAKE(엄지+새끼) 구분에 도움
-    thumb_pinky_spread = dist(lm[4], lm[20]) / (hand_size + 1e-6)
-    features.extend([thumb_index_spread, thumb_pinky_spread])
-
-    # ── 손 기울기 ──
+    features.extend([dist(lm[4], lm[8]) / (hand_size + 1e-6),
+                     dist(lm[4], lm[20]) / (hand_size + 1e-6)])
     tilt = abs(math.atan2(abs(lm[9].x-lm[0].x), abs(lm[0].y-lm[9].y)+0.001))
     features.append(tilt)
-
-    return features  # 16개
-
+    return features
 
 def get_finger_states_from_features(features):
-    """특징값에서 손가락 상태 추출 (디버그 표시용)"""
     if len(features) < 16:
         return [False]*5, [0.0]*5
-    states = [False] * 5
-    openness = [0.0] * 5
-
-    # 엄지: ratio(idx 0) + 추가 특징(idx 2,3,4) 종합 판단
-    thumb_ratio = features[0]
-    thumb_to_mid = features[2]
-    states[0] = thumb_ratio > 1.2 and thumb_to_mid > 0.8
+    states, openness = [False]*5, [0.0]*5
+    states[0]   = features[0] > 1.2 and features[2] > 0.8
     openness[0] = features[1]
-
-    # 검지~새끼: idx 5,7,9,11 = ratio
     for i, idx in enumerate([5, 7, 9, 11]):
-        ratio = features[idx]
+        states[i+1]   = features[idx] > 1.3
         openness[i+1] = features[idx+1]
-        states[i+1] = ratio > 1.3
-
     return states, openness
 
 
@@ -149,27 +134,18 @@ def get_finger_states_from_features(features):
 # ══════════════════════════════════════════════════════════════════
 GESTURES = ["GRAB", "POUR", "RELEASE", "SHAKE", "1", "2", "3", "4"]
 GESTURE_INSTRUCTIONS = {
-    "GRAB":    "주먹을 쥐세요",
-    "POUR":    "엄지만 펴세요",
-    "RELEASE": "엄지 + 검지를 펴세요",
-    "SHAKE":   "엄지 + 새끼를 펴세요",
-    "1":       "검지 1개만 펴세요",
-    "2":       "검지 + 중지 2개 펴세요",
-    "3":       "검지 + 중지 + 약지 3개 펴세요",
-    "4":       "엄지 빼고 4개 펴세요",
+    "GRAB":"주먹을 쥐세요", "POUR":"엄지만 펴세요",
+    "RELEASE":"엄지+검지를 펴세요", "SHAKE":"엄지+새끼를 펴세요",
+    "1":"검지 1개만", "2":"검지+중지 2개", "3":"검지+중지+약지 3개", "4":"엄지 빼고 4개",
 }
-
 LABELS_KR = {
-    "GRAB":"잡기", "RELEASE":"놓기", "POUR":"붓기",
-    "SHAKE":"흔들기", "STOP":"정지", "UNKNOWN":"...",
-    "1":"1", "2":"2", "3":"3", "4":"4",
+    "GRAB":"잡기","RELEASE":"놓기","POUR":"붓기","SHAKE":"흔들기",
+    "STOP":"정지","UNKNOWN":"...","1":"1","2":"2","3":"3","4":"4",
 }
-
 COLORS = {
-    "GRAB":(33,150,243), "RELEASE":(255,193,7),
-    "POUR":(156,39,176), "SHAKE":(255,87,34),
-    "1":(0,150,60), "2":(0,150,60), "3":(0,150,60), "4":(0,150,60),
-    "STOP":(100,100,100), "UNKNOWN":(60,60,60),
+    "GRAB":(33,150,243),"RELEASE":(255,193,7),"POUR":(156,39,176),"SHAKE":(255,87,34),
+    "1":(0,150,60),"2":(0,150,60),"3":(0,150,60),"4":(0,150,60),
+    "STOP":(100,100,100),"UNKNOWN":(60,60,60),
 }
 
 
@@ -177,70 +153,52 @@ COLORS = {
 #  데이터 수집
 # ══════════════════════════════════════════════════════════════════
 def collect_data():
-    cap = cv2.VideoCapture(CAMERA_ID)
+    cap = cv2.VideoCapture(CAMERA_ID, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
     all_features, all_labels = [], []
-
     print("="*50)
     print(f"  데이터 수집: {len(GESTURES)}개 x {SAMPLES_PER_GESTURE}개")
     print("  ★ 손 위치/각도를 계속 바꿔가며 수집하세요!")
     print("="*50)
-
     for gesture in GESTURES:
         instruction = GESTURE_INSTRUCTIONS[gesture]
         label_kr = LABELS_KR.get(gesture, gesture)
         collected = 0; ready_start = None; waiting = True
         print(f"\n[{gesture}] {instruction}")
-
         while collected < SAMPLES_PER_GESTURE:
             ret, frame = cap.read()
             if not ret: break
             frame = cv2.flip(frame, 1)
             result = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             h, w = frame.shape[:2]
-
             cv2.rectangle(frame, (0,0), (w,60), (50,50,50), -1)
-            frame = put_text(frame, f"{label_kr} ({gesture})  [{collected}/{SAMPLES_PER_GESTURE}]",
-                             (12,5), font_large, (255,255,255))
+            frame = put_text(frame, f"{label_kr} ({gesture})  [{collected}/{SAMPLES_PER_GESTURE}]", (12,5), font_large, (255,255,255))
             frame = put_text(frame, instruction, (12,70), font_mid, (100,255,100))
             pw = int(collected / SAMPLES_PER_GESTURE * (w-40))
             cv2.rectangle(frame, (20,h-30), (20+pw,h-18), (76,175,80), -1)
             cv2.rectangle(frame, (20,h-30), (w-20,h-18), (100,100,100), 1)
-
-            if result.multi_hand_landmarks:
+            if result and hasattr(result, 'multi_hand_landmarks') and result.multi_hand_landmarks:
                 for hlm in result.multi_hand_landmarks:
                     mp_draw.draw_landmarks(frame, hlm, mp_hands.HAND_CONNECTIONS)
                     if waiting:
                         if ready_start is None: ready_start = time.time()
-                        remaining = 3 - (time.time() - ready_start)
-                        if remaining > 0:
-                            frame = put_text(frame, f"{int(remaining)+1}초 후 수집...",
-                                             (w//2-80, h//2-20), font_mid, (255,255,0))
+                        rem = 3 - (time.time() - ready_start)
+                        if rem > 0:
+                            frame = put_text(frame, f"{int(rem)+1}초 후 수집...", (w//2-80,h//2-20), font_mid, (255,255,0))
                         else:
-                            waiting = False
-                            print("  수집 시작!")
+                            waiting = False; print("  수집 시작!")
                     else:
                         feat = extract_features(hlm.landmark)
-                        all_features.append(feat)
-                        all_labels.append(gesture)
+                        all_features.append(feat); all_labels.append(gesture)
                         collected += 1
-                        cv2.circle(frame, (w-40, 40), 15, (0,255,0), -1)
-
-                        # 디버그: 특징값 표시
-                        states, opens = get_finger_states_from_features(feat)
-                        names = ["Th","In","Mi","Ri","Pi"]
-                        dbg = " ".join([f"{names[i]}:{'O' if states[i] else 'x'}({opens[i]:.1f})" for i in range(5)])
-                        cv2.putText(frame, dbg, (10,h-50), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (180,220,255), 1)
-
+                        cv2.circle(frame, (w-40,40), 15, (0,255,0), -1)
                         time.sleep(0.03)
             else:
                 ready_start = None
-
             cv2.imshow("ChemiBot v6 - Data Collection", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 cap.release(); cv2.destroyAllWindows(); return None, None
-
         print(f"  {gesture} 완료! ({collected}개)")
         waiting = True; ready_start = None
         for _ in range(40):
@@ -248,13 +206,9 @@ def collect_data():
             if not ret: break
             frame = cv2.flip(frame, 1); h, w = frame.shape[:2]
             cv2.rectangle(frame, (0,0), (w,h), (30,30,30), -1)
-            frame = put_text(frame, f"{label_kr} 완료!",
-                             (w//2-60, h//2-40), font_large, (0,255,0))
-            frame = put_text(frame, "다음 제스처 준비...",
-                             (w//2-80, h//2+10), font_mid, (200,200,200))
-            cv2.imshow("ChemiBot v6 - Data Collection", frame)
-            cv2.waitKey(50)
-
+            frame = put_text(frame, f"{label_kr} 완료!", (w//2-60,h//2-40), font_large, (0,255,0))
+            frame = put_text(frame, "다음 제스처 준비...", (w//2-80,h//2+10), font_mid, (200,200,200))
+            cv2.imshow("ChemiBot v6 - Data Collection", frame); cv2.waitKey(50)
     cap.release(); cv2.destroyAllWindows()
     return all_features, all_labels
 
@@ -265,88 +219,78 @@ def collect_data():
 def train_model(features, labels):
     X, y = np.array(features), np.array(labels)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    print(f"\n학습 데이터: {len(X_train)}개 / 테스트: {len(X_test)}개")
-    print(f"특징값: {X.shape[1]}개 (손가락 ratio+openness)")
-    print("모델 학습 중...")
-
-    model = RandomForestClassifier(
-        n_estimators=300,
-        max_depth=15,
-        class_weight="balanced",
-        random_state=42,
-    )
+    print(f"\n학습: {len(X_train)}개 / 테스트: {len(X_test)}개")
+    model = RandomForestClassifier(n_estimators=300, max_depth=15, class_weight="balanced", random_state=42)
     model.fit(X_train, y_train)
-
     y_pred = model.predict(X_test)
-    acc = accuracy_score(y_test, y_pred)
-    print(f"\n정확도: {acc*100:.1f}%")
-    print("\n클래스별 성능:")
+    print(f"정확도: {accuracy_score(y_test,y_pred)*100:.1f}%")
     print(classification_report(y_test, y_pred))
-
-    # 특징 중요도
-    feat_names = ["thumb_r","thumb_o","thumb_mid","thumb_wrist","thumb_midtip",
-                  "index_r","index_o","middle_r","middle_o",
-                  "ring_r","ring_o","pinky_r","pinky_o",
-                  "th_in_spread","th_pi_spread","tilt"]
-    importances = model.feature_importances_
-    print("특징 중요도:")
-    for name, imp in sorted(zip(feat_names, importances), key=lambda x: -x[1]):
-        bar = "█" * int(imp * 50)
-        print(f"  {name:10s} {imp:.3f} {bar}")
-
     os.makedirs("models", exist_ok=True)
-    with open(MODEL_PATH, "wb") as f:
-        pickle.dump(model, f)
-    print(f"\n모델 저장: {MODEL_PATH}")
+    with open(MODEL_PATH, "wb") as f: pickle.dump(model, f)
+    print(f"모델 저장: {MODEL_PATH}")
     return model
 
 
 # ══════════════════════════════════════════════════════════════════
 #  로봇 제어
 # ══════════════════════════════════════════════════════════════════
-def robot_grip():    print("  [ROBOT] 잡기")
-def robot_release(): print("  [ROBOT] 놓기")
-def robot_pour(a):   print(f"  [ROBOT] 붓기 {int(a)}도")
-def robot_shake(x,y): print("  [ROBOT] 흔들기")
-def robot_stop():    print("  [ROBOT] 정지")
+robot = None
+
+def robot_grip():
+    if robot: robot.grip_close()
+    else: print("  [ROBOT] 잡기")
+
+def robot_release():
+    if robot: robot.grip_open()
+    else: print("  [ROBOT] 놓기")
+
+def robot_pour(slot):
+    """붓기: 슬롯 옆면 집기 → 비커 붓기 → 원래 위치 꽂기"""
+    if robot: robot.pour(slot)
+    else: print(f"  [ROBOT] 붓기 {slot}")
+
+def robot_shake():
+    """섞기: 막대기 집기 → 섞기 동작 → 막대기 내려놓기"""
+    if robot: robot.stir()
+    else: print("  [ROBOT] 섞기")
+
+def robot_stop():
+    if robot: robot.stop()
+    else: print("  [ROBOT] 정지")
 
 def get_tilt(lm):
-    return abs(math.degrees(math.atan2(
-        abs(lm[9].x-lm[0].x), abs(lm[0].y-lm[9].y)+0.001)))
+    return abs(math.degrees(math.atan2(abs(lm[9].x-lm[0].x), abs(lm[0].y-lm[9].y)+0.001)))
 
 
 # ══════════════════════════════════════════════════════════════════
 #  실시간 인식
 # ══════════════════════════════════════════════════════════════════
 def run_realtime(model):
-    cap = cv2.VideoCapture(CAMERA_ID)
+    cap = cv2.VideoCapture(CAMERA_ID, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
 
-    last_gesture = "UNKNOWN"
-    last_gesture_time = 0
     grabbed = False
     no_hand_frames = 0
-    last_robot_xyz = (0, 0, ROBOT_Z_DEFAULT)
 
-    # 상태 머신: IDLE → MEASURING → EXECUTE → IDLE
+    # 상태: IDLE → MEASURING → EXECUTE → IDLE / POSITIONED
     state = "IDLE"
     measure_start = 0
-    measure_preds = []       # 측정 중 누적된 (gesture, confidence) 리스트
+    measure_preds = []
     MEASURE_SEC = 2.0
-    MIN_CONFIDENCE = 60      # 이 이하면 실행 안 하고 경고
+    MIN_CONFIDENCE = 60
     execute_start = 0
     execute_gesture = ""
     execute_conf = 0
-    execute_blocked = False   # 신뢰도 부족 → 실행 차단
+    execute_blocked = False
+    selected_tube = None  # POSITIONED 상태에서 선택된 튜브 번호
+    last_gesture = "UNKNOWN"
 
     print("\n" + "="*50)
-    print("  실시간 제스처 인식 (v6)")
-    print("  1,2,3,4: 손가락 개수")
-    print("  주먹=잡기 | 엄지=붓기")
-    print("  엄지+검지=놓기 | 엄지+새끼=흔들기")
-    print("  손 치우면 정지 | Q: 종료")
+    print("  ChemiBot v6 실시간 인식")
+    print("  1~4: 튜브 위치 이동  |  주먹: 잡기")
+    print("  엄지: 붓기  |  엄지+검지: 놓기")
+    print("  손 치우면 정지  |  Q: 종료")
     print("="*50)
 
     while True:
@@ -355,38 +299,33 @@ def run_realtime(model):
         frame = cv2.flip(frame, 1)
         result = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         h, w = frame.shape[:2]
-
-        gesture = "UNKNOWN"
-        confidence = 0
-        tilt = None
-        finger_states = [False]*5
-        openness = [0.0]*5
+        gesture = "UNKNOWN"; confidence = 0; tilt = None
+        finger_states = [False]*5; openness = [0.0]*5
         now = time.time()
 
-        # ── 손 감지 + 제스처 추론 ──
-        if result.multi_hand_landmarks:
+        # ── 손 감지 ──
+        if result and hasattr(result, 'multi_hand_landmarks') and result.multi_hand_landmarks:
             no_hand_frames = 0
             for hlm in result.multi_hand_landmarks:
                 mp_draw.draw_landmarks(frame, hlm, mp_hands.HAND_CONNECTIONS)
                 lm = hlm.landmark
                 tilt = get_tilt(lm)
-
                 feat = extract_features(lm)
                 finger_states, openness = get_finger_states_from_features(feat)
-
                 proba = model.predict_proba([feat])[0]
                 pred_idx = np.argmax(proba)
                 gesture = model.classes_[pred_idx]
                 confidence = proba[pred_idx] * 100
         else:
             no_hand_frames += 1
-            if no_hand_frames > 10:
-                gesture = "STOP"
+            if no_hand_frames > 10: gesture = "STOP"
 
         # ── 상태 머신 ──
         if state == "IDLE":
-            if gesture not in ("UNKNOWN", "STOP") and confidence >= 50:
-                # 제스처 감지 → 측정 시작
+            if robot and robot.playing:
+                pass  # 로봇 동작 중 차단
+            elif gesture not in ("UNKNOWN","STOP") and confidence >= 50:
+                last_gesture = gesture
                 state = "MEASURING"
                 measure_start = now
                 measure_preds = [(gesture, confidence)]
@@ -394,171 +333,175 @@ def run_realtime(model):
                 robot_stop()
                 last_gesture = "STOP"
 
+        elif state == "POSITIONED":
+            # 튜브 위치 도달 — GRAB만 받음
+            if robot and robot.playing:
+                pass  # 아직 이동 중
+            elif gesture == "GRAB" and confidence >= 50:
+                state = "MEASURING"
+                measure_start = now
+                measure_preds = [(gesture, confidence)]
+            elif no_hand_frames > 15:
+                state = "IDLE"
+
         elif state == "MEASURING":
             elapsed = now - measure_start
             remaining = MEASURE_SEC - elapsed
-
             if gesture == "STOP" or no_hand_frames > 5:
-                # 손 치움 → 리셋
-                state = "IDLE"
+                state = "POSITIONED" if (selected_tube and not (robot and robot.playing)) else "IDLE"
                 measure_preds = []
             elif remaining <= 0:
-                # 3초 완료 → 결과 집계
-                all_gestures = [g for g, c in measure_preds]
-                counts = Counter(all_gestures)
+                all_g = [g for g,c in measure_preds]
+                counts = Counter(all_g)
                 best_gesture, best_count = counts.most_common(1)[0]
-                # 해당 제스처의 평균 confidence
-                best_confs = [c for g, c in measure_preds if g == best_gesture]
+                best_confs = [c for g,c in measure_preds if g == best_gesture]
                 avg_conf = sum(best_confs) / len(best_confs)
                 vote_ratio = best_count / len(measure_preds) * 100
-
                 execute_gesture = best_gesture
                 execute_conf = avg_conf
                 execute_start = now
-                state = "EXECUTE"
-
                 label_kr = LABELS_KR.get(best_gesture, best_gesture)
 
                 if avg_conf < MIN_CONFIDENCE or vote_ratio < 50:
-                    # 신뢰도 부족 → 경고, 실행 안 함
                     execute_blocked = True
-                    print(f"  [경고] {label_kr} — 신뢰도 {avg_conf:.0f}% / 투표 {vote_ratio:.0f}% → 실행 차단")
+                    state = "EXECUTE"
+                    print(f"  [경고] {label_kr} — 신뢰도 {avg_conf:.0f}% → 차단")
                 else:
-                    # 신뢰도 충분 → 실행
                     execute_blocked = False
-                    print(f"  [실행] {label_kr} — 신뢰도 {avg_conf:.0f}% (투표 {vote_ratio:.0f}%)")
+                    print(f"  [실행] {label_kr} — {avg_conf:.0f}%")
+                    send_gesture(best_gesture)  # zone_tracker로 전송
 
-                    if best_gesture == "GRAB" and not grabbed:
-                        robot_grip(); grabbed = True
-                    elif best_gesture == "RELEASE" and grabbed:
-                        robot_release(); grabbed = False
-                    elif best_gesture == "POUR":
-                        pour_angle = max(0, min(90, tilt)) if tilt else 45
-                        robot_pour(pour_angle)
-                    elif best_gesture == "SHAKE":
-                        robot_shake(last_robot_xyz[0], last_robot_xyz[1])
+                    # ★ zone_tracker 연결됐으면 로봇 직접 제어 안 함
+                    # zone_tracker가 모든 로봇 명령 처리
+                    if zone_sock is not None:
+                        state = "EXECUTE"
+                    else:
+                        # zone_tracker 없을 때만 직접 제어
+                        if best_gesture in ("1","2","3","4"):
+                            selected_tube = int(best_gesture)
+                            if robot and not robot.playing:
+                                robot.pickup_move(selected_tube)
+                            state = "POSITIONED"
 
-                    last_gesture = best_gesture
+                        elif best_gesture == "GRAB":
+                            if selected_tube:
+                                if robot: robot.pickup_grip()
+                                robot_grip(); grabbed = True
+                                selected_tube = None
+                            elif not grabbed:
+                                robot_grip(); grabbed = True
+                            state = "EXECUTE"
+
+                        elif best_gesture == "RELEASE":
+                            robot_release(); grabbed = False
+                            state = "EXECUTE"
+
+                        elif best_gesture == "POUR":
+                            pour_slot = f"A{selected_tube}" if selected_tube else "A1"
+                            robot_pour(pour_slot)
+                            selected_tube = None
+                            state = "EXECUTE"
+
+                        elif best_gesture == "SHAKE":
+                            robot_shake()
+                            state = "EXECUTE"
+
             else:
-                # 측정 중 — 계속 누적
-                if gesture not in ("UNKNOWN", "STOP"):
+                if gesture not in ("UNKNOWN","STOP"):
                     measure_preds.append((gesture, confidence))
 
         elif state == "EXECUTE":
-            # 결과 표시 2초 후 IDLE로
-            if now - execute_start > 2.0:
+            robot_done = not (robot and robot.playing)
+            if now - execute_start > 2.0 and robot_done:
                 state = "IDLE"
                 measure_preds = []
 
-        # ── UI 그리기 ──
+        # ── UI ──
         if state == "IDLE":
-            if gesture not in ("UNKNOWN", "STOP"):
+            if robot and robot.playing:
+                display_label = f"로봇: {robot.current_action}"
+                bar_color = (50,120,50); conf_text = ""
+            elif gesture not in ("UNKNOWN","STOP"):
                 display_label = LABELS_KR.get(gesture, gesture)
-                bar_color = COLORS.get(gesture, (60,60,60))
+                bar_color = COLORS.get(gesture,(60,60,60))
                 conf_text = f"  ({confidence:.0f}%)"
             elif gesture == "STOP":
-                display_label = "정지"
-                bar_color = COLORS["STOP"]
-                conf_text = ""
+                display_label = "정지"; bar_color = COLORS["STOP"]; conf_text = ""
             else:
-                display_label = "대기 중..."
-                bar_color = (60, 60, 60)
-                conf_text = ""
-
+                display_label = "대기 중..."; bar_color = (60,60,60); conf_text = ""
             cv2.rectangle(frame, (0,0), (w,54), bar_color, -1)
             if USE_PIL:
-                frame = put_text(frame, f"{display_label}{conf_text}",
-                                 (12, 8), font_large, (255,255,255))
+                frame = put_text(frame, f"{display_label}{conf_text}", (12,8), font_large, (255,255,255))
             else:
-                cv2.putText(frame, f"{display_label}{conf_text}",
-                            (15, 38), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), 2)
+                cv2.putText(frame, f"{display_label}{conf_text}", (15,38), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), 2)
+
+        elif state == "POSITIONED":
+            cv2.rectangle(frame, (0,0), (w,54), (0,120,200), -1)
+            msg = f"tube_{selected_tube} 도달 — 주먹 쥐어 잡기"
+            if USE_PIL:
+                frame = put_text(frame, msg, (12,8), font_large, (255,255,255))
+            else:
+                cv2.putText(frame, msg, (15,38), cv2.FONT_HERSHEY_SIMPLEX, 0.85, (255,255,255), 2)
 
         elif state == "MEASURING":
-            elapsed = now - measure_start
-            remaining = max(0, MEASURE_SEC - elapsed)
-            progress = min(1.0, elapsed / MEASURE_SEC)
-
-            # 현재 가장 많은 제스처
+            elapsed2 = now - measure_start
+            remaining2 = max(0, MEASURE_SEC - elapsed2)
+            progress = min(1.0, elapsed2 / MEASURE_SEC)
             if measure_preds:
-                all_g = [g for g, c in measure_preds]
-                top_g = Counter(all_g).most_common(1)[0][0]
+                all_g2 = [g for g,c in measure_preds]
+                top_g = Counter(all_g2).most_common(1)[0][0]
                 top_label = LABELS_KR.get(top_g, top_g)
-                top_confs = [c for g, c in measure_preds if g == top_g]
-                avg_c = sum(top_confs) / len(top_confs)
+                top_confs = [c for g,c in measure_preds if g==top_g]
+                avg_c = sum(top_confs)/len(top_confs)
             else:
-                top_label = "..."
-                avg_c = 0
-
-            # 상단 바 (진행 상태)
-            cv2.rectangle(frame, (0,0), (w,84), (40, 40, 40), -1)
-
-            # 진행률 바
-            bar_w = int(progress * (w - 40))
-            bar_color_measure = (76, 175, 80)  # 초록
-            cv2.rectangle(frame, (20, 62), (20 + bar_w, 76), bar_color_measure, -1)
-            cv2.rectangle(frame, (20, 62), (w-20, 76), (100,100,100), 1)
-
-            # 텍스트
+                top_label = "..."; avg_c = 0
+            cv2.rectangle(frame, (0,0), (w,84), (40,40,40), -1)
+            bw = int(progress*(w-40))
+            cv2.rectangle(frame, (20,62), (20+bw,76), (76,175,80), -1)
+            cv2.rectangle(frame, (20,62), (w-20,76), (100,100,100), 1)
             if USE_PIL:
-                frame = put_text(frame, f"인식 중... {remaining:.1f}초",
-                                 (12, 4), font_mid, (255,255,0))
-                frame = put_text(frame, f"{top_label} ({avg_c:.0f}%)",
-                                 (12, 32), font_large, (255,255,255))
+                frame = put_text(frame, f"인식 중... {remaining2:.1f}초", (12,4), font_mid, (255,255,0))
+                frame = put_text(frame, f"{top_label} ({avg_c:.0f}%)", (12,32), font_large, (255,255,255))
             else:
-                cv2.putText(frame, f"Measuring... {remaining:.1f}s",
-                            (15, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,0), 2)
-                cv2.putText(frame, f"{top_label} ({avg_c:.0f}%)",
-                            (15, 55), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,255), 2)
-
-            # 수집 카운트
-            cv2.putText(frame, f"samples: {len(measure_preds)}",
-                        (w-150, 76), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (150,200,150), 1)
+                cv2.putText(frame, f"Measuring... {remaining2:.1f}s", (15,22), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,0), 2)
+                cv2.putText(frame, f"{top_label} ({avg_c:.0f}%)", (15,55), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,255), 2)
+            cv2.putText(frame, f"samples: {len(measure_preds)}", (w-150,76), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (150,200,150), 1)
 
         elif state == "EXECUTE":
-            elapsed = now - execute_start
-            label_kr = LABELS_KR.get(execute_gesture, execute_gesture)
-
+            label_kr2 = LABELS_KR.get(execute_gesture, execute_gesture)
             if execute_blocked:
-                # ── 경고 UI (빨간색) ──
-                cv2.rectangle(frame, (0,0), (w,84), (40, 40, 180), -1)
+                cv2.rectangle(frame, (0,0), (w,84), (40,40,180), -1)
                 if USE_PIL:
-                    frame = put_text(frame, f"✗ {label_kr} — 인식 불확실",
-                                     (12, 4), font_large, (255,255,255))
-                    frame = put_text(frame, f"신뢰도 {execute_conf:.0f}% → 다시 시도하세요",
-                                     (12, 42), font_mid, (255,200,200))
+                    frame = put_text(frame, f"✗ {label_kr2} — 인식 불확실", (12,4), font_large, (255,255,255))
+                    frame = put_text(frame, f"신뢰도 {execute_conf:.0f}% → 다시 시도", (12,42), font_mid, (255,200,200))
                 else:
-                    cv2.putText(frame, f"X {label_kr} - LOW CONFIDENCE",
-                                (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255,255,255), 2)
-                    cv2.putText(frame, f"{execute_conf:.0f}% - Try again",
-                                (15, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,200,200), 2)
+                    cv2.putText(frame, f"X {label_kr2} - LOW CONFIDENCE", (15,35), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255,255,255), 2)
+                    cv2.putText(frame, f"{execute_conf:.0f}% - Try again", (15,65), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,200,200), 2)
             else:
-                # ── 실행 UI (제스처 색상) ──
-                exec_color = COLORS.get(execute_gesture, (60,60,60))
+                exec_color = COLORS.get(execute_gesture,(60,60,60))
                 cv2.rectangle(frame, (0,0), (w,84), exec_color, -1)
                 if USE_PIL:
-                    frame = put_text(frame, f"✓ {label_kr} 실행!",
-                                     (12, 4), font_large, (255,255,255))
-                    frame = put_text(frame, f"신뢰도: {execute_conf:.0f}%",
-                                     (12, 42), font_mid, (220,255,220))
+                    frame = put_text(frame, f"✓ {label_kr2} 실행!", (12,4), font_large, (255,255,255))
+                    frame = put_text(frame, f"신뢰도: {execute_conf:.0f}%", (12,42), font_mid, (220,255,220))
                 else:
-                    cv2.putText(frame, f">> {label_kr} EXECUTE!",
-                                (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,255), 2)
-                    cv2.putText(frame, f"Confidence: {execute_conf:.0f}%",
-                                (15, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (220,255,220), 2)
+                    cv2.putText(frame, f">> {label_kr2} EXECUTE!", (15,35), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,255), 2)
+                    cv2.putText(frame, f"Confidence: {execute_conf:.0f}%", (15,65), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (220,255,220), 2)
 
-        # 기울기
         if tilt is not None:
             bc = (156,39,176) if tilt > POUR_ANGLE_THRESHOLD else (200,200,200)
-            cv2.putText(frame, f"Tilt: {int(tilt)} deg",
-                        (10,h-22), cv2.FONT_HERSHEY_SIMPLEX, 0.5, bc, 1)
-
-        # 손가락 디버그
-        if result.multi_hand_landmarks:
+            cv2.putText(frame, f"Tilt: {int(tilt)} deg", (10,h-22), cv2.FONT_HERSHEY_SIMPLEX, 0.5, bc, 1)
+        if result and hasattr(result, 'multi_hand_landmarks') and result.multi_hand_landmarks:
             names = ["Th","In","Mi","Ri","Pi"]
             dbg = " ".join([f"{names[i]}:{'O' if finger_states[i] else 'x'}({openness[i]:.1f})" for i in range(5)])
             cv2.putText(frame, dbg, (10,h-48), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (180,220,255), 1)
-
         cv2.putText(frame, "Q: Quit", (w-80,h-10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (150,150,150), 1)
+        if robot:
+            status = robot.get_status()
+            cv2.circle(frame, (w-20,20), 6, (0,255,0) if status["connected"] else (0,0,255), -1)
+            if status["playing"]:
+                cv2.putText(frame, f"ROBOT: {status['action']}", (w-250,20), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (100,255,100), 1)
+            cv2.putText(frame, f"Grip: {status['gripper']}", (w-120,h-28), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (180,180,180), 1)
+
         cv2.imshow("ChemiBot - Gesture Control v6", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
 
@@ -569,31 +512,42 @@ def run_realtime(model):
 #  메인
 # ══════════════════════════════════════════════════════════════════
 def main():
+    global robot
     print("="*50)
     print("  ChemiBot v6 — 손동작 제어")
-    print("  특징 추출(거리 기반) + ML 학습")
     print("="*50)
+
+    use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
+    if use_robot == 'y':
+        from robot_controller import RobotController
+        ip   = input("로봇 IP (기본 192.168.0.27): ").strip() or "192.168.0.27"
+        port = input("포트 (기본 5001): ").strip() or "5001"
+        robot = RobotController(ip=ip, port=int(port))
+        if robot.connected:
+            if input("홈 위치로 이동? (y/n): ").strip().lower() == 'y':
+                robot.go_home()
+    else:
+        robot = None
+        print("[INFO] 시뮬레이션 모드")
+
+    # zone_tracker 연결
+    connect_zone_tracker()
 
     model = None
     if os.path.exists(MODEL_PATH):
-        print(f"\n[모델] 기존 파일 발견: {MODEL_PATH}")
-        choice = input("기존 모델 사용? (y/n): ").strip().lower()
-        if choice == 'y':
-            with open(MODEL_PATH, "rb") as f:
-                model = pickle.load(f)
-            print(f"[INFO] 모델 로드 완료! (클래스: {list(model.classes_)})")
+        print(f"\n[모델] 기존 파일: {MODEL_PATH}")
+        if input("기존 모델 사용? (y/n): ").strip().lower() == 'y':
+            with open(MODEL_PATH, "rb") as f: model = pickle.load(f)
+            print(f"[INFO] 로드 완료: {list(model.classes_)}")
 
     if model is None:
-        print(f"\n[학습] {len(GESTURES)}개 제스처 x {SAMPLES_PER_GESTURE}개 수집")
+        print(f"\n[학습] {len(GESTURES)}개 x {SAMPLES_PER_GESTURE}개 수집")
         features, labels = collect_data()
-        if features is None:
-            return
-        print(f"\n수집 완료: {len(labels)}개")
+        if features is None: return
         model = train_model(features, labels)
 
     print("\n[실시간 인식 시작]")
     run_realtime(model)
-
 
 if __name__ == '__main__':
     main()
