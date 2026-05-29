@@ -5,6 +5,8 @@ __pycache__/
 *.pyd
 .venv/
 venv/
+.venv311/
+.venv*/
 *.env
 
 # ── Node (React/Vite) ────────────────
@@ -22,29 +24,14 @@ manager/.vs/
 *.userosscache
 *.sln.docstates
 
-# ── 기타 ─────────────────────────────
-.DS_Store
-Thumbs.db
-*.log
-
-
-
-
-
-
-
-# ── WPF ──────────────── 
-
-
 # ── 빌드 출력 ──
 bin/
 obj/
+**/bin/
+**/obj/
 
 # ── Visual Studio ──
 .vs/
-*.user
-*.suo
-*.userosscache
 *.sln.docview
 
 # ── 빌드 캐시 / 메타데이터 ──
@@ -61,8 +48,6 @@ DocumentLayout.backup.json
 DesignTimeBuild/
 ProjectEvaluation/
 v17/
-**/bin/
-**/obj/
 
 # ── .NET 빌드 결과물 ──
 *.dll
@@ -79,22 +64,15 @@ packages/
 # ── node_modules ──
 node_modules/
 
-
-
 # ── gesture_learning ──────────────────
-.venv311/
-.venv*/
-
-# 캘리브레이션 데이터 (개인 설정)
 calib_data/
-
-# 로봇 궤적 JSON (Pi에서 생성)
+models/
 tube_pickups.json
 tube_drops.json
-
-# config
 config.json
-
-# zone 데이터 (PC마다 다름)
 zone_data.json
 
+# ── 기타 ─────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
