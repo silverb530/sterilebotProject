@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using monitoring_wpf.Services;
 
@@ -192,5 +193,44 @@ namespace monitoring_wpf.Views
         private void ResetState_Click(object s, RoutedEventArgs e) => OnResume?.Invoke();
 
         private void Exit_Click(object s, RoutedEventArgs e) => OnExit?.Invoke();
+
+        private void Reset_Click(object s, RoutedEventArgs e)
+        {
+            // 리셋: 비상 해제 + 맵 초기화
+            SetEmergency(false);
+            ClearMapHighlight();
+        }
+
+        // ══════════════════════════════════════════
+        // 맵 시험관 하이라이트
+        // ══════════════════════════════════════════
+        private Ellipse? _lastHighlighted;
+
+        public void HighlightSlot(string slotName)
+        {
+            ClearMapHighlight();
+
+            var slot = this.FindName($"Slot{slotName}") as Ellipse;
+            if (slot != null)
+            {
+                slot.Fill   = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E)); // 초록
+                slot.Stroke = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
+                slot.StrokeThickness = 3;
+                _lastHighlighted = slot;
+                MapStatusText.Text = $"▶ {slotName} 선택됨";
+            }
+        }
+
+        public void ClearMapHighlight()
+        {
+            if (_lastHighlighted != null)
+            {
+                _lastHighlighted.Fill   = new SolidColorBrush(Color.FromRgb(0x3B, 0x82, 0xF6)); // 원래 파란색
+                _lastHighlighted.Stroke = new SolidColorBrush(Color.FromRgb(0x25, 0x63, 0xEB));
+                _lastHighlighted.StrokeThickness = 1.5;
+                _lastHighlighted = null;
+            }
+            MapStatusText.Text = "";
+        }
     }
 }

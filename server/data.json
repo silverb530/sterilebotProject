@@ -3,7 +3,7 @@
     {
       "id": 1,
       "name": "김수영",
-      "role": "연구원",
+      "role": "관리자",
       "face_registered": true,
       "created": "2026-05-19"
     },
@@ -13,6 +13,62 @@
       "role": "연구원",
       "face_registered": true,
       "created": "2026-05-19"
+    },
+    {
+      "id": 4,
+      "name": "강은비",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-20"
+    },
+    {
+      "id": 5,
+      "name": "최지윤",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-21"
+    },
+    {
+      "id": 6,
+      "name": "김재니",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-21"
+    },
+    {
+      "id": 7,
+      "name": "이승민",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-21"
+    },
+    {
+      "id": 8,
+      "name": "김영현",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-22"
+    },
+    {
+      "id": 9,
+      "name": "김규태",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-22"
+    },
+    {
+      "id": 10,
+      "name": "김민준",
+      "role": "연구원",
+      "face_registered": true,
+      "created": "2026-05-28"
+    },
+    {
+      "id": 11,
+      "name": "정서현",
+      "role": "연구원",
+      "face_registered": false,
+      "created": "2026-05-28"
     }
   ],
   "usage_logs": [

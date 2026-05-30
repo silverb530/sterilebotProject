@@ -21,14 +21,14 @@ namespace monitoring_wpf.Views
         private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(5) };
         private const string FlaskUrl = "http://localhost:5000/api/face/login";
 
-        private double _scanY          = 0;
+        private double _scanY = 0;
         private bool _isAuthenticating = false;
-        private bool _isFailed         = false;
+        private bool _isFailed = false;
 
         public FaceAuthView()
         {
             InitializeComponent();
-            Loaded   += (_, _) => OnLoaded();
+            Loaded += (_, _) => OnLoaded();
             Unloaded += (_, _) => StopCamera();
         }
 
@@ -85,7 +85,9 @@ namespace monitoring_wpf.Views
                         frameCount++;
                         if (frameCount % 15 == 0 && !_isAuthenticating && !_isFailed)
                         {
-                            var jpegBytes = frame.ToBytes(".jpg");
+                            // JPEG 품질 95%로 인코딩 (기본값보다 훨씬 선명)
+                            var encParams = new ImageEncodingParam(ImwriteFlags.JpegQuality, 95);
+                            var jpegBytes = frame.ToBytes(".jpg", new[] { encParams });
                             _ = TryAuthenticateAsync(jpegBytes, token);
                         }
 
@@ -115,7 +117,7 @@ namespace monitoring_wpf.Views
                 var response = await _http.PostAsync(FlaskUrl, content, token);
                 if (!response.IsSuccessStatusCode) return;
 
-                var json   = await response.Content.ReadAsStringAsync(token);
+                var json = await response.Content.ReadAsStringAsync(token);
                 var result = JsonSerializer.Deserialize<AuthResult>(json);
 
                 await Dispatcher.InvokeAsync(() =>
@@ -123,7 +125,9 @@ namespace monitoring_wpf.Views
                     if (result?.Ok == true)
                         ShowAuthComplete(result.Name, result.Role, result.Confidence);
                     else if (result?.Retry == true)
-                        AuthLine1.Text = "얼굴 인식 중...";
+                        AuthLine1.Text = string.IsNullOrEmpty(result.Reason)
+                            ? "얼굴 인식 중..."
+                            : result.Reason;
                     else
                         ShowAuthFailed();
                 });
@@ -138,19 +142,19 @@ namespace monitoring_wpf.Views
             _isFailed = true;
             _scanTimer.Stop();
 
-            foreach (var n in new[]{"BL_V1","BL_H1","BR_V1","BR_H1","BL_V2","BL_H2","BR_V2","BR_H2"})
+            foreach (var n in new[] { "BL_V1", "BL_H1", "BR_V1", "BR_H1", "BL_V2", "BL_H2", "BR_V2", "BR_H2" })
                 if (FindName(n) is System.Windows.Shapes.Line l)
                     l.Stroke = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
 
-            ConfidencePanel.Visibility   = Visibility.Visible;
-            ConfidenceStatus.Text        = "인증 실패";
-            ConfidencePercent.Text       = "✗";
+            ConfidencePanel.Visibility = Visibility.Visible;
+            ConfidenceStatus.Text = "인증 실패";
+            ConfidencePercent.Text = "✗";
             ConfidencePercent.Foreground = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
-            ConfidenceFill.Width         = 0;
+            ConfidenceFill.Width = 0;
 
-            AuthLine1.Text               = "인증에 실패하였습니다";
-            AuthLine2.Text               = "관리자에게 문의하세요";
-            AuthLine2.Foreground         = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
+            AuthLine1.Text = "인증에 실패하였습니다";
+            AuthLine2.Text = "관리자에게 문의하세요";
+            AuthLine2.Foreground = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
         }
 
         public void StopCamera()
@@ -168,21 +172,21 @@ namespace monitoring_wpf.Views
             MainWindow.AuthName = name;
             MainWindow.AuthRole = role;
 
-            ConfidencePanel.Visibility   = Visibility.Visible;
-            ConfidenceStatus.Text        = "인증 성공!";
-            ConfidencePercent.Text       = $"{confidence}%";
+            ConfidencePanel.Visibility = Visibility.Visible;
+            ConfidenceStatus.Text = "인증 성공!";
+            ConfidencePercent.Text = $"{confidence}%";
             ConfidencePercent.Foreground = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
-            ConfidenceFill.Width         = confidence / 100.0 * 200;
-            ConfidenceFill.Fill          = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
+            ConfidenceFill.Width = confidence / 100.0 * 200;
+            ConfidenceFill.Fill = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
 
-            foreach (var n in new[]{"BL_V1","BL_H1","BR_V1","BR_H1","BL_V2","BL_H2","BR_V2","BR_H2"})
+            foreach (var n in new[] { "BL_V1", "BL_H1", "BR_V1", "BR_H1", "BL_V2", "BL_H2", "BR_V2", "BR_H2" })
                 if (FindName(n) is System.Windows.Shapes.Line l)
                     l.Stroke = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
 
             AuthBadge.Visibility = Visibility.Visible;
-            AuthBadgeText.Text   = $"{name} {role} 인증완료";
-            AuthLine1.Text       = $"신뢰도 {confidence}% 로 인증이 완료되었습니다";
-            AuthLine2.Text       = "잠시 후 이동합니다...";
+            AuthBadgeText.Text = $"{name} {role} 인증완료";
+            AuthLine1.Text = $"신뢰도 {confidence}% 로 인증이 완료되었습니다";
+            AuthLine2.Text = "잠시 후 이동합니다...";
             AuthLine2.Foreground = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
 
             _scanTimer.Stop();

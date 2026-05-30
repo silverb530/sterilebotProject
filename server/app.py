@@ -12,13 +12,12 @@ from datetime import datetime
 import json, time, random, threading, os, io, pickle
 
 import face_recognition
+import cv2
 import mysql.connector
 import numpy as np
 
 app = Flask(__name__)
 CORS(app)
-
-
 # ══════════════════════════════════════════════════════════════════
 #  0. MySQL 연결
 # ══════════════════════════════════════════════════════════════════
@@ -32,8 +31,6 @@ DB_CONFIG = {
 
 def get_db():
     return mysql.connector.connect(**DB_CONFIG)
-
-
 # ══════════════════════════════════════════════════════════════════
 #  1. 실시간 상태 (WPF 모니터링용)
 # ══════════════════════════════════════════════════════════════════
@@ -141,8 +138,6 @@ def calib():
     if request.method == "GET": return jsonify({"points":calib_points,"count":len(calib_points)})
     if request.method == "DELETE": calib_points = []; return jsonify({"ok":True})
     calib_points.append(request.get_json()); return jsonify({"ok":True,"count":len(calib_points)})
-
-
 # ══════════════════════════════════════════════════════════════════
 #  2. 안면인식 — 얼굴 등록 / 로그인
 # ══════════════════════════════════════════════════════════════════
@@ -159,29 +154,57 @@ def register_face(rid):
     if not img_bytes:
         return jsonify({"error": "이미지 데이터가 없습니다"}), 400
 
-    # 얼굴 벡터 추출
+    # 얼굴 벡터 추출 (전처리 + 정밀 인코딩)
     try:
         img = face_recognition.load_image_file(io.BytesIO(img_bytes))
-        encodings = face_recognition.face_encodings(img)
+
+        # 이미지 전처리: CLAHE 밝기/대비 보정
+
+        img_bgr = cv2.imdecode(
+            np.frombuffer(img_bytes, dtype=np.uint8), cv2.IMREAD_COLOR
+        )
+        if img_bgr is not None:
+            lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
+            l, a, b = cv2.split(lab)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            l = clahe.apply(l)
+            lab = cv2.merge([l, a, b])
+            img = cv2.cvtColor(
+                cv2.cvtColor(lab, cv2.COLOR_LAB2BGR), cv2.COLOR_BGR2RGB
+            )
+
+        # 등록은 한 번이라 약간 느려도 OK → upsample=2, jitters=3
+        face_locations = face_recognition.face_locations(img, model="hog",
+                                                        number_of_times_to_upsample=2)
+        if not face_locations:
+            return jsonify({"error": "얼굴을 감지하지 못했습니다. 정면을 바라봐 주세요."}), 400
+
+        encodings = face_recognition.face_encodings(
+            img, known_face_locations=face_locations, num_jitters=3
+        )
     except Exception as e:
         return jsonify({"error": f"이미지 처리 실패: {str(e)}"}), 400
 
     if not encodings:
         return jsonify({"error": "얼굴을 감지하지 못했습니다. 정면을 바라봐 주세요."}), 400
 
-    # 기존 벡터 가져와서 리스트에 추가 (다중 등록)
-    try:
-        db = get_db(); cur = db.cursor()
-        cur.execute("SELECT face_data FROM researcher WHERE id=%s", (rid,))
-        row = cur.fetchone()
+    # reset=true면 기존 벡터 초기화 (재등록 첫 프레임), 아니면 기존에 추가
+    reset = request.args.get("reset", "").lower() == "true"
+    if reset:
         existing = []
-        if row and row[0]:
-            existing = pickle.loads(row[0])
-            if not isinstance(existing, list):
-                existing = [existing]
-        db.close()
-    except Exception:
-        existing = []
+    else:
+        try:
+            db = get_db(); cur = db.cursor()
+            cur.execute("SELECT face_data FROM researcher WHERE id=%s", (rid,))
+            row = cur.fetchone()
+            existing = []
+            if row and row[0]:
+                existing = pickle.loads(row[0])
+                if not isinstance(existing, list):
+                    existing = [existing]
+            db.close()
+        except Exception:
+            existing = []
 
     existing.append(encodings[0])
     encoding_blob = pickle.dumps(existing)
@@ -213,7 +236,15 @@ def register_face(rid):
 
     # data.json에 없는 경우에도 성공 반환
     return jsonify({"ok": True, "id": rid})
-
+# ── 다중 프레임 누적 판정용 버퍼 ──
+_face_buf = []           # [(timestamp, matched_id, distance), ...]
+_face_fail_count = 0     # 연속 미매칭 횟수
+_face_buf_lock = threading.Lock()
+FACE_REQUIRED   = 3      # 3회 일치 시 인증
+FACE_WINDOW     = 5      # 최근 5회 시도 내에서 판정
+FACE_WINDOW_SEC = 8.0    # 8초 이내 결과만 유효
+FACE_THRESHOLD  = 0.4    # distance 기준
+FACE_MAX_FAIL   = 15     # 15회 연속 미매칭 시 인증 실패
 
 @app.route("/api/face/login", methods=["POST"])
 def face_login():
@@ -222,16 +253,43 @@ def face_login():
     Body: JPEG raw bytes (Content-Type: image/jpeg)
     Response:
       성공 → {"ok": true, "name": "김수영", "role": "연구원", "confidence": 98.4}
+      누적중 → {"ok": false, "retry": true, "progress": "2/3"}
       실패 → {"ok": false, "reason": "인증 실패"}
     """
+    global _face_fail_count
     img_bytes = request.data
     if not img_bytes:
         return jsonify({"ok": False, "reason": "이미지 데이터 없음"}), 400
 
-    # 얼굴 벡터 추출
+    # 얼굴 벡터 추출 (전처리 + 정밀 인코딩)
     try:
         img = face_recognition.load_image_file(io.BytesIO(img_bytes))
-        encodings = face_recognition.face_encodings(img)
+
+        # 이미지 전처리: 밝기/대비 자동 보정 (CLAHE)
+        img_bgr = cv2.imdecode(
+            np.frombuffer(img_bytes, dtype=np.uint8), cv2.IMREAD_COLOR
+        )
+        if img_bgr is not None:
+            lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
+            l, a, b = cv2.split(lab)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            l = clahe.apply(l)
+            lab = cv2.merge([l, a, b])
+            img = cv2.cvtColor(
+                cv2.cvtColor(lab, cv2.COLOR_LAB2BGR), cv2.COLOR_BGR2RGB
+            )
+
+        # 얼굴 위치 검출 (HOG: 빠름, upsample=1로 속도 유지)
+        face_locations = face_recognition.face_locations(img, model="hog",
+                                                        number_of_times_to_upsample=1)
+
+        if not face_locations:
+            return jsonify({"ok": False, "reason": "얼굴 없음", "retry": True})
+
+        # num_jitters=1 : 로그인은 속도 우선 (전처리로 품질 보완)
+        encodings = face_recognition.face_encodings(
+            img, known_face_locations=face_locations, num_jitters=1
+        )
     except Exception as e:
         return jsonify({"ok": False, "reason": f"이미지 처리 실패: {str(e)}"}), 400
 
@@ -256,7 +314,7 @@ def face_login():
     if not rows:
         return jsonify({"ok": False, "reason": "등록된 얼굴이 없습니다"})
 
-    # 유사도 비교 (distance < 0.02 → 신뢰도 98% 이상)
+    # 유사도 비교 — 최소 거리(best vector) 기준으로 매칭
     best_match = None
     best_dist  = 1.0
 
@@ -266,27 +324,66 @@ def face_login():
             stored = [stored]
         try:
             distances = face_recognition.face_distance(stored, target)
-            dist = float(np.mean(distances))  # 평균값으로 안정적 인식
+            dist = float(np.min(distances))
+            print(f"[FACE] {row['name']}: dist={dist:.4f} (vectors={len(stored)})")
             if dist < best_dist:
                 best_dist  = dist
                 best_match = row
         except Exception:
-            continue  # 손상된 벡터는 건너뜀
+            continue
 
-    THRESHOLD = 0.4  # 신뢰도 60% 이상만 통과 (distance 0.4 이하)
-    if best_match and best_dist < THRESHOLD:
-        confidence = round((1 - best_dist) * 100, 1)
-        return jsonify({
-            "ok":         True,
-            "id":         best_match["id"],
-            "name":       best_match["name"],
-            "role":       best_match["role"],
-            "confidence": confidence,
-        })
+    if best_match:
+        print(f"[FACE] ▶ best={best_match['name']} dist={best_dist:.4f} "
+              f"{'✓ PASS' if best_dist < FACE_THRESHOLD else '✗ FAIL'} (threshold={FACE_THRESHOLD})")
+    else:
+        print(f"[FACE] ▶ 매칭 대상 없음")
 
-    return jsonify({"ok": False, "reason": "인증 실패", "retry": False})
+    now = time.time()
 
+    with _face_buf_lock:
+        # 오래된 결과 제거
+        _face_buf[:] = [(t, mid, d) for t, mid, d in _face_buf
+                        if now - t < FACE_WINDOW_SEC]
 
+        if best_match and best_dist < FACE_THRESHOLD:
+            _face_fail_count = 0
+            _face_buf.append((now, best_match["id"], best_dist))
+
+            # 최근 FACE_WINDOW(5)회 시도 중 같은 사람이 FACE_REQUIRED(3)회 이상?
+            recent = _face_buf[-FACE_WINDOW:]
+            matched_count = sum(1 for _, mid, _ in recent if mid == best_match["id"])
+
+            if matched_count >= FACE_REQUIRED:
+                # 인증 성공 — 해당 사람의 매칭 거리 평균으로 confidence
+                matched_dists = [d for _, mid, d in recent if mid == best_match["id"]]
+                avg_dist = float(np.mean(matched_dists))
+                # distance² 기반 변환 (dist 0.12→98.6%, 0.3→91%, 0.5→75%)
+                confidence = round(min(99.9, (1 - avg_dist ** 2) * 100), 1)
+                _face_buf.clear()
+                _face_fail_count = 0
+                return jsonify({
+                    "ok":         True,
+                    "id":         best_match["id"],
+                    "name":       best_match["name"],
+                    "role":       best_match["role"],
+                    "confidence": confidence,
+                })
+
+            # 아직 누적 중
+            return jsonify({
+                "ok": False, "retry": True,
+                "reason": f"인식 중... ({matched_count}/{FACE_REQUIRED})",
+            })
+        else:
+            # 매칭 실패 — 버퍼는 유지, 실패 카운터만 증가
+            _face_fail_count += 1
+
+            if _face_fail_count >= FACE_MAX_FAIL:
+                _face_buf.clear()
+                _face_fail_count = 0
+                return jsonify({"ok": False, "reason": "인증 실패", "retry": False})
+
+    return jsonify({"ok": False, "reason": "얼굴 인식 중...", "retry": True})
 # ══════════════════════════════════════════════════════════════════
 #  3. 관리자 기능 (data.json 기반)
 # ══════════════════════════════════════════════════════════════════
@@ -405,8 +502,6 @@ def get_dashboard():
         "recent_usage":data["usage_logs"][-5:][::-1],
         "recent_errors":data["error_logs"][-5:][::-1],
     })
-
-
 # ══════════════════════════════════════════════════════════════════
 #  4. React 빌드 서빙
 # ══════════════════════════════════════════════════════════════════
@@ -420,8 +515,6 @@ def serve_react(path):
     if os.path.exists(index):
         return send_from_directory(dist, "index.html")
     return jsonify({"message":"개발 중: npm run dev (localhost:3000) 로 접속","api":"Flask API 정상 (localhost:5000)"}), 200
-
-
 if __name__ == "__main__":
     print("=" * 50)
     print("ChemiBot 통합 서버")

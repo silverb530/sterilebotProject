@@ -66,7 +66,8 @@ function FaceRegisterModal({ researcher, onClose, onDone }) {
     }, 1000);
 
     // 캡처 타이머 (0.5초마다 → 10초 = 20장)
-    captureRef.current = setInterval(() => {
+    // 첫 프레임 즉시 캡처 (0ms)
+    const captureFrame = () => {
       const video  = videoRef.current;
       const canvas = canvasRef.current;
       if (video && canvas) {
@@ -76,7 +77,9 @@ function FaceRegisterModal({ researcher, onClose, onDone }) {
         frames.push(canvas.toDataURL("image/jpeg", 0.9));
         setCaptured([...frames]);
       }
-    }, 500);
+    };
+    captureFrame();
+    captureRef.current = setInterval(captureFrame, 500);
   };
 
   // 프레임들 순서대로 Flask 업로드
@@ -90,7 +93,8 @@ function FaceRegisterModal({ researcher, onClose, onDone }) {
       setUploadIdx(i + 1);
       try {
         const blob = await (await fetch(frames[i])).blob();
-        const resp = await fetch(`/api/researchers/${researcher.id}/face`, {
+        const url = `/api/researchers/${researcher.id}/face` + (i === 0 ? "?reset=true" : "");
+        const resp = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "image/jpeg" },
           body: blob,
