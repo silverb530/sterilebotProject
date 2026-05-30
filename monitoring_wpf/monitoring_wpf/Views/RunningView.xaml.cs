@@ -1,4 +1,7 @@
 using System;
+using System.IO;
+using System.Text.Json;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -21,7 +24,40 @@ namespace monitoring_wpf.Views
         // Zone_tracker MJPEG 스트림 URL (같은 PC면 localhost, 다른 PC면 그 IP)
         private const string ZoneTrackerStreamUrl = "http://localhost:8090/stream";
         private const int LabCamIndex = 0;
-        private const int ArmCamIndex = 1;
+        // ArmCamIndex 는 camera_indices.json 에서 "arm" 키로 동적으로 읽음.
+        // 매핑 안 됐으면 -1 → PIP 표시 안 함.
+        private static int ArmCamIndex => LoadArmCamIndex();
+
+        /// <summary>
+        /// gesture_learning/camera_indices.json 을 찾아서 "arm" 키 값을 반환.
+        /// 파일 없거나 키 없으면 -1.
+        /// </summary>
+        private static int LoadArmCamIndex()
+        {
+            try
+            {
+                // exe 위치에서 위로 올라가며 gesture_learning/camera_indices.json 탐색
+                var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+                while (dir != null)
+                {
+                    var path = Path.Combine(dir.FullName, "gesture_learning", "camera_indices.json");
+                    if (File.Exists(path))
+                    {
+                        var json = File.ReadAllText(path);
+                        var map = JsonSerializer.Deserialize<Dictionary<string, int>>(json);
+                        if (map != null && map.TryGetValue("arm", out int idx))
+                            return idx;
+                        return -1;
+                    }
+                    dir = dir.Parent;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"camera_indices.json 읽기 실패: {ex.Message}");
+            }
+            return -1;
+        }
 
         private bool _labIsMain = true;
 
@@ -61,16 +97,34 @@ namespace monitoring_wpf.Views
 
             MainCam.Stop();
             PipCam.Stop();
+
+            int armIdx = ArmCamIndex;   // 한 번만 읽어두기
+            string armMissingLbl = "로봇암 카메라 미연결";
+
             if (_labIsMain)
             {
-                // 큰 화면 = Zone_tracker MJPEG 스트림, 작은 화면 = USB 로봇암
+                // 큰 화면 = Zone_tracker MJPEG 스트림
                 MainCam.StartMjpeg(ZoneTrackerStreamUrl, mainLbl + " 대기 중");
-                PipCam.Start(ArmCamIndex, pipLbl + " 대기 중");
+
+                // 작은 화면 = 로봇암 카메라 (있을 때만)
+                if (armIdx >= 0)
+                    PipCam.Start(armIdx, pipLbl + " 대기 중");
+                else
+                {
+                    PipCam.Stop();
+                    pipLbl = armMissingLbl;
+                }
             }
             else
             {
-                // 큰 화면 = USB 로봇암, 작은 화면 = Zone_tracker MJPEG
-                MainCam.Start(ArmCamIndex, mainLbl + " 대기 중");
+                // 큰 화면 = USB 로봇암 (있을 때만), 작은 화면 = Zone_tracker MJPEG
+                if (armIdx >= 0)
+                    MainCam.Start(armIdx, mainLbl + " 대기 중");
+                else
+                {
+                    MainCam.Stop();
+                    mainLbl = armMissingLbl;
+                }
                 PipCam.StartMjpeg(ZoneTrackerStreamUrl, pipLbl + " 대기 중");
             }
 

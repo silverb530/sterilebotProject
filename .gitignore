@@ -80,7 +80,7 @@ Thumbs.db
 
 # === 카메라 매핑 (각 PC 마다 다름) ===
 camera_map.json
-
+camera_indices.json
 # === Python 가상환경 ===
 .venv/
 __pycache__/
