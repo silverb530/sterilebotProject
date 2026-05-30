@@ -77,3 +77,15 @@ zone_data.json
 Thumbs.db
 *.log
 *.zip
+
+# === 카메라 매핑 (각 PC 마다 다름) ===
+camera_map.json
+
+# === Python 가상환경 ===
+.venv/
+__pycache__/
+*.pyc
+
+# === 로그 ===
+logs/
+*.log

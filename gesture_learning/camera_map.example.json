@@ -1,0 +1,7 @@
+{
+  "_comment": "이 파일을 camera_map.json 으로 복사 후 자기 PC 환경에 맞게 수정. camera_map.json 은 .gitignore 에 등록되어 커밋되지 않음. 카메라 이름은 'python camera_finder.py' 단독 실행으로 확인.",
+
+  "face":    "<얼굴 카메라 이름의 일부>",
+  "lab":     "<실험실 카메라 이름의 일부>",
+  "gesture": "<손/제스처 카메라 이름의 일부>"
+}

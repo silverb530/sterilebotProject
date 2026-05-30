@@ -15,6 +15,7 @@
 # =============================================================
 
 import cv2
+from camera_finder import get_camera_index
 import numpy as np
 import argparse
 import json
@@ -144,6 +145,8 @@ def main():
                         help="로봇 연결 여부 (WPF가 전달)")
     parser.add_argument("--ip",   type=str, default="192.168.0.27")
     parser.add_argument("--port", type=int, default=5001)
+    parser.add_argument("--cam",  type=int, default=None,
+                        help="카메라 인덱스 (지정 안 하면 기본값 사용)")
     args, _ = parser.parse_known_args()
 
     robot = None
@@ -177,7 +180,13 @@ def main():
     threading.Thread(target=gesture_receiver, daemon=True).start()
 
     # 웹캠
-    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
+    # 카메라 인덱스 결정: --cam 인자 > camera_map.json("lab") > CAMERA_INDEX
+    if args.cam is not None:
+        cam_idx = args.cam
+        print(f"[INFO] 사용 카메라 인덱스: {cam_idx} (--cam 인자)", flush=True)
+    else:
+        cam_idx = get_camera_index("lab", fallback=CAMERA_INDEX)
+    cap = cv2.VideoCapture(cam_idx, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))

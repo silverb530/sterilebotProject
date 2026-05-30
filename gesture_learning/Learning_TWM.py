@@ -19,6 +19,7 @@
 # =============================================================
 
 import cv2
+from camera_finder import get_camera_index
 import numpy as np
 import mediapipe as mp
 import sys
@@ -140,6 +141,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", type=str, default="default",
                         help="사용자 이름 (캘리브레이션 파일명)")
+    parser.add_argument("--cam", type=int, default=None,
+                        help="카메라 인덱스 (지정 안 하면 기본값 사용)")
     args = parser.parse_args()
 
     save_path = os.path.join(SAVE_DIR, f"{args.name}.npy")
@@ -179,7 +182,14 @@ def main():
     connect_zone_tracker()
 
     # 카메라 스레드 시작
-    cam = CameraThread(CAMERA_INDEX, 640, 480)
+    # --cam 인자가 있으면 그 번호, 없으면 코드 상단의 CAMERA_INDEX 사용
+    # 카메라 인덱스 결정 우선순위: --cam 인자 > camera_map.json("face") > CAMERA_INDEX 기본값
+    if args.cam is not None:
+        cam_idx = args.cam
+        print(f"[INFO] 사용 카메라 인덱스: {cam_idx} (--cam 인자)", flush=True)
+    else:
+        cam_idx = get_camera_index("face", fallback=CAMERA_INDEX)
+    cam = CameraThread(cam_idx, 640, 480)
     frame_w, frame_h = cam.get_size()
     print(f"[INFO] 웹캠: {frame_w}x{frame_h}")
     print("[INFO] 트래킹 시작! (종료: Ctrl+C 또는 q키)")

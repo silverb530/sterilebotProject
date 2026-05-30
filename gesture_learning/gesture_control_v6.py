@@ -5,6 +5,7 @@ ChemiBot — MediaPipe 손동작 제어 v6
 
 import argparse
 import cv2
+from camera_finder import get_camera_index
 import mediapipe as mp
 import numpy as np
 import math
@@ -524,7 +525,17 @@ def main():
     parser.add_argument("--ip",   type=str, default="192.168.0.27")
     parser.add_argument("--port", type=int, default=5001)
     parser.add_argument("--home", choices=["yes", "no"], default="no")
+    parser.add_argument("--cam",  type=int, default=None,
+                        help="카메라 인덱스 (지정 안 하면 기본값 사용)")
     args, _ = parser.parse_known_args()
+
+    # 카메라 인덱스 결정: --cam 인자 > camera_map.json("gesture") > CAMERA_ID
+    global CAMERA_ID
+    if args.cam is not None:
+        CAMERA_ID = args.cam
+        print(f"[INFO] 사용 카메라 인덱스: {CAMERA_ID} (--cam 인자)", flush=True)
+    else:
+        CAMERA_ID = get_camera_index("gesture", fallback=CAMERA_ID)
 
     if args.robot is None:
         # 수동 실행 (콘솔 input)
