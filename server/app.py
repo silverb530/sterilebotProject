@@ -22,8 +22,8 @@ CORS(app)
 #  0. MySQL 연결
 # ══════════════════════════════════════════════════════════════════
 DB_CONFIG = {
-    "host":     "localhost",
-    "user":     "root",
+    "host":     "192.168.0.16",
+    "user":     "chemibot",
     "password": "1111",
     "database": "sterilebot",
     "charset":  "utf8mb4",
