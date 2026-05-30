@@ -40,7 +40,7 @@ namespace monitoring_wpf.Views
                 var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
                 while (dir != null)
                 {
-                    var path = Path.Combine(dir.FullName, "gesture_learning", "camera_indices.json");
+                    var path = System.IO.Path.Combine(dir.FullName, "gesture_learning", "camera_indices.json");
                     if (File.Exists(path))
                     {
                         var json = File.ReadAllText(path);
