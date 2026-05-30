@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Threading;
 using System.Windows;
 
 namespace monitoring_wpf.Services
@@ -20,24 +18,46 @@ namespace monitoring_wpf.Services
         // 실험 프로세스 (Zone_tracker, gesture_control) — 실험 종료 시 정리
         private readonly List<Process> _experimentProcs = new();
 
-        // ───────────────────────────────────────────
-        //  ★ 환경에 맞게 수정할 부분
-        // ───────────────────────────────────────────
-        private static readonly string GestureDir =
-            @"C:\Users\moble_edu\Downloads\gesture_learning_wpf\gesture_learning\gesture_learning";
+        // gesture_learning 폴더 경로 (실행 시 자동 탐색)
+        private static readonly string GestureDir = ResolveGestureDir();
+
+        /// <summary>
+        /// exe 위치에서 부모 폴더로 올라가며 gesture_learning 폴더를 찾음.
+        /// Learning_TWM.py 가 있는 폴더만 유효한 것으로 간주.
+        /// </summary>
+        private static string ResolveGestureDir()
+        {
+            var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+            while (dir != null)
+            {
+                var candidate = Path.Combine(dir.FullName, "gesture_learning");
+                if (Directory.Exists(candidate) &&
+                    File.Exists(Path.Combine(candidate, "Learning_TWM.py")))
+                {
+                    return candidate;
+                }
+                dir = dir.Parent;
+            }
+
+            // 못 찾았으면 빈 문자열 반환 — Launch 에서 에러 메시지 표시
+            MessageBox.Show(
+                "gesture_learning 폴더를 찾을 수 없습니다.\n" +
+                "프로젝트 루트 아래에 gesture_learning/Learning_TWM.py 가 있어야 합니다.",
+                "경로 설정 오류",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return "";
+        }
 
         private static string PythonExe
         {
             get
             {
+                if (string.IsNullOrEmpty(GestureDir)) return "py";
                 string venv = Path.Combine(GestureDir, ".venv", "Scripts", "python.exe");
                 if (File.Exists(venv)) return venv;
                 return "py";
             }
         }
-
-        [DllImport("kernel32.dll")]
-        private static extern bool FreeConsole();
 
         /// <summary>
         /// 얼굴 인증 통과 직후 호출. Learning_TWM 만 띄워서 시선 커서 활성화.
@@ -45,12 +65,8 @@ namespace monitoring_wpf.Services
         /// </summary>
         public void StartTracking(string userName)
         {
-            string logDir = Path.Combine(GestureDir, "logs");
-            Directory.CreateDirectory(logDir);
-
             Launch("Learning_TWM.py",
                 $"--name {userName}",
-                Path.Combine(logDir, "learning_twm.log"),
                 _trackingProcs);
         }
 
@@ -62,26 +78,33 @@ namespace monitoring_wpf.Services
         {
             string robotArg = useRobot ? "yes" : "no";
 
-            string logDir = Path.Combine(GestureDir, "logs");
-            Directory.CreateDirectory(logDir);
-
             Launch("Zone_tracker.py",
                 $"--robot {robotArg} --ip {robotIp} --port {robotPort}",
-                Path.Combine(logDir, "zone_tracker.log"),
                 _experimentProcs);
 
             Launch("gesture_control_v6.py",
                 $"--robot {robotArg} --ip {robotIp} --port {robotPort} --home no",
-                Path.Combine(logDir, "gesture_control.log"),
                 _experimentProcs);
         }
 
-        private void Launch(string scriptName, string scriptArgs, string logPath, List<Process> bucket)
+        private void Launch(string scriptName, string scriptArgs, List<Process> bucket)
         {
+            if (string.IsNullOrEmpty(GestureDir)) return;
+
             try
             {
                 string exe = PythonExe;
                 string scriptPath = Path.Combine(GestureDir, scriptName);
+
+                if (!File.Exists(scriptPath))
+                {
+                    MessageBox.Show(
+                        $"{scriptName} 파일을 찾을 수 없습니다.\n경로: {scriptPath}",
+                        "스크립트 누락",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
                 string args = $"-u \"{scriptPath}\" {scriptArgs}";
 
                 var psi = new ProcessStartInfo
@@ -101,17 +124,16 @@ namespace monitoring_wpf.Services
 
                 var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
-                var logStream = new StreamWriter(
-                    new FileStream(logPath, FileMode.Create, FileAccess.Write, FileShare.Read))
-                { AutoFlush = true };
-
-                logStream.WriteLine($"[{DateTime.Now:HH:mm:ss}] === {scriptName} 시작 ===");
-                logStream.WriteLine($"  CMD: {exe} {args}");
-                logStream.WriteLine();
-
-                p.OutputDataReceived += (_, e) => { if (e.Data != null) logStream.WriteLine(e.Data); };
-                p.ErrorDataReceived += (_, e) => { if (e.Data != null) logStream.WriteLine("[ERR] " + e.Data); };
-                p.Exited += (_, _) => { try { logStream.Close(); } catch { } };
+                // Python 의 stdout/stderr 는 Visual Studio 의 [디버그] 출력 창으로
+                // (로그 파일은 만들지 않음 — 사람마다 경로/권한 문제 회피)
+                p.OutputDataReceived += (_, e) =>
+                {
+                    if (e.Data != null) Debug.WriteLine($"[{scriptName}] {e.Data}");
+                };
+                p.ErrorDataReceived += (_, e) =>
+                {
+                    if (e.Data != null) Debug.WriteLine($"[{scriptName}][ERR] {e.Data}");
+                };
 
                 p.Start();
                 p.BeginOutputReadLine();
@@ -121,7 +143,7 @@ namespace monitoring_wpf.Services
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"{scriptName} 실행 실패:\n{ex.Message}\n\n경로: {GestureDir}",
+                    $"{scriptName} 실행 실패:\n{ex.Message}",
                     "프로세스 실행 오류",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -159,28 +181,25 @@ namespace monitoring_wpf.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Kill 실패: {ex.Message}");
+                    Debug.WriteLine($"Kill 실패: {ex.Message}");
                 }
             }
             procs.Clear();
         }
 
         /// <summary>
-        /// 앱 시작 시 호출: 이전 실행에서 살아남은 좀비 python.exe 청소.
-        /// 이 PC 의 모든 python.exe 를 죽이므로 다른 Python 작업과 충돌 주의.
+        /// (정적, 옵션) 시작 시 좀비 python.exe 청소.
+        /// 주의: app.py 같은 다른 Python 도 같이 죽이므로 기본적으로 호출 안 함.
+        /// 필요 시 수동으로 PowerShell 에서: taskkill /F /IM python.exe
         /// </summary>
         public static void KillZombiePythons()
         {
             try
             {
                 foreach (var p in Process.GetProcessesByName("python"))
-                {
                     try { p.Kill(entireProcessTree: true); } catch { }
-                }
                 foreach (var p in Process.GetProcessesByName("pythonw"))
-                {
                     try { p.Kill(entireProcessTree: true); } catch { }
-                }
             }
             catch { }
         }
