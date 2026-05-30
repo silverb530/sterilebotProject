@@ -260,9 +260,57 @@ namespace monitoring_wpf.Views
 
         private void Reset_Click(object s, RoutedEventArgs e)
         {
-            // 리셋: 비상 해제 + 맵 초기화
+            // 확인 다이얼로그
+            var result = MessageBox.Show(
+                "정말 리셋하시겠습니까?\n\n" +
+                "옮긴 시험관이 모두 원래 위치로 되돌아갑니다.\n" +
+                "(진행 중 동작이 있으면 완료 후 시작됩니다)",
+                "리셋 확인",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            // UI 즉시 반영
             SetEmergency(false);
             ClearMapHighlight();
+
+            // Zone_tracker 에게 reset 신호 전송: gesture_learning/reset_trigger.flag 생성
+            try
+            {
+                string? gestureDir = FindGestureLearningDir();
+                if (gestureDir == null)
+                {
+                    MessageBox.Show("gesture_learning 폴더를 찾을 수 없습니다.\nreset 신호 전송 실패.",
+                                    "리셋 오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                string flagPath = System.IO.Path.Combine(gestureDir, "reset_trigger.flag");
+                File.WriteAllText(flagPath, DateTime.Now.ToString("o"));
+                System.Diagnostics.Debug.WriteLine($"[Reset] 신호 파일 생성: {flagPath}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"리셋 신호 전송 실패: {ex.Message}",
+                                "리셋 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// exe 폴더에서 위로 올라가며 gesture_learning 폴더 탐색.
+        /// </summary>
+        private static string? FindGestureLearningDir()
+        {
+            var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+            while (dir != null)
+            {
+                string candidate = System.IO.Path.Combine(dir.FullName, "gesture_learning");
+                if (Directory.Exists(candidate))
+                    return candidate;
+                dir = dir.Parent;
+            }
+            return null;
         }
 
         // ══════════════════════════════════════════

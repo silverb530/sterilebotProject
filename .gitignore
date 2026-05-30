@@ -89,3 +89,7 @@ __pycache__/
 # === 로그 ===
 logs/
 *.log
+
+# === Reset 시스템 ===
+reset_trigger.flag
+tube_state.json        # 사람마다 다를 수 있음 (선택사항 - 공유 원하면 빼도 됨)

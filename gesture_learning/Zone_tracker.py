@@ -27,6 +27,15 @@ import threading
 import ctypes
 
 from mjpeg_streamer import MjpegStreamer
+
+# Reset 시스템 (사용자분이 만든 정교한 리셋)
+try:
+    from tube_state import TubeStateManager
+    import robot_reset_ext  # noqa: F401 - RobotController에 return_held/return_tube 추가
+    _RESET_AVAILABLE = True
+except ImportError as e:
+    print(f"[WARN] reset 시스템 비활성: {e}", flush=True)
+    _RESET_AVAILABLE = False
 # ────────────────────────────────────────────────
 #  설정값
 # ────────────────────────────────────────────────
@@ -36,6 +45,9 @@ CURSOR_PORT     = 9002
 GESTURE_PORT    = 9003
 DWELL_TIME      = 0.8
 DWELL_COOLDOWN  = 1.5
+
+# WPF 가 만든 reset 신호 파일 — 매 프레임 폴링
+RESET_TRIGGER_FILE = "reset_trigger.flag"
 
 # ────────────────────────────────────────────────
 #  구역 파일 로드
@@ -179,6 +191,20 @@ def main():
     threading.Thread(target=cursor_receiver,  daemon=True).start()
     threading.Thread(target=gesture_receiver, daemon=True).start()
 
+    # Reset 시스템 초기화
+    state_mgr = None
+    reset_running = False        # 지금 reset 진행 중인가
+    reset_status_text = ""        # UI에 표시할 메시지
+    if _RESET_AVAILABLE:
+        state_mgr = TubeStateManager()
+        # 시작 시 남아있는 reset_trigger 파일은 무시
+        if os.path.exists(RESET_TRIGGER_FILE):
+            try:
+                os.remove(RESET_TRIGGER_FILE)
+                print("[RESET] 시작 시 남은 trigger 파일 제거", flush=True)
+            except Exception:
+                pass
+
     # 웹캠
     # 카메라 인덱스 결정: --cam 인자 > camera_map.json("lab") > CAMERA_INDEX
     if args.cam is not None:
@@ -229,7 +255,75 @@ def main():
 
     print("\n[INFO] 트래킹 시작! (q: 종료)")
 
+    # ResetRunner 는 _RESET_AVAILABLE 일 때만 늦게 만든다 (robot 이 있을 때만 의미 있음)
+    reset_runner = None
+    if _RESET_AVAILABLE and robot:
+        try:
+            # ResetRunner 는 이 파일에 정의하지 않음 — 임시로 lambda 같은 간단 버전 사용
+            # plan 을 받아 robot.return_held / return_tube 를 순차 호출하는 간이 러너
+            class _SimpleResetRunner:
+                def __init__(self, sm, rb):
+                    self.sm = sm
+                    self.rb = rb
+                    self.busy = False
+                    self.status = ""
+                def start(self):
+                    if self.busy:
+                        print("[RESET] 이미 진행 중", flush=True)
+                        return
+                    plan = self.sm.build_reset_plan()
+                    if not plan:
+                        self.status = "이미 모두 원위치"
+                        print("[RESET] 이미 모두 원위치", flush=True)
+                        return
+                    self.busy = True
+                    threading.Thread(target=self._run, args=(plan,), daemon=True).start()
+                def _run(self, plan):
+                    try:
+                        for step in plan:
+                            tube = step["tube"]
+                            tube_num = int(tube.split("_")[1])
+                            if step["action"] == "release_at_origin":
+                                self.status = f"{tube} 원위치로 놓기"
+                                print(f"[RESET] {self.status}", flush=True)
+                                self.rb.return_held(tube_num, sync=True)
+                                self.sm.mark_release()
+                            else:
+                                self.status = f"{tube} {step['from']} -> {step['to']}"
+                                print(f"[RESET] {self.status}", flush=True)
+                                self.rb.return_tube(step["from"], tube_num, sync=True)
+                                # 잡기 + 놓기 다 끝남 — state 갱신 (그리퍼 한 사이클 처리됨)
+                                self.sm.state["tubes"][tube]["location"] = self.sm.state["tubes"][tube]["origin"]
+                                self.sm.state["robot"]["gripper"] = "open"
+                                self.sm.state["robot"]["holding"] = None
+                                self.sm.state["robot"]["approach_kind"] = None
+                                self.sm.state["robot"]["approach_target"] = None
+                                self.sm.save()
+                        self.status = "완료"
+                        print("[RESET] 완료", flush=True)
+                    except Exception as e:
+                        self.status = f"실패: {e}"
+                        print(f"[RESET] {self.status}", flush=True)
+                    finally:
+                        self.busy = False
+            reset_runner = _SimpleResetRunner(state_mgr, robot)
+            print("[RESET] ResetRunner 준비 완료", flush=True)
+        except Exception as e:
+            print(f"[RESET] ResetRunner 초기화 실패: {e}", flush=True)
+
     while True:
+        # === Reset 트리거 파일 폴링 ===
+        if _RESET_AVAILABLE and reset_runner and os.path.exists(RESET_TRIGGER_FILE):
+            try:
+                os.remove(RESET_TRIGGER_FILE)
+            except Exception:
+                pass
+            if not reset_runner.busy:
+                print("[RESET] WPF 트리거 감지 → 자동 실행", flush=True)
+                reset_runner.start()
+            else:
+                print("[RESET] 이미 진행 중이라 무시", flush=True)
+
         ret, frame = cap.read()
         if not ret:
             continue
@@ -370,6 +464,8 @@ def main():
                             if ok:
                                 pickup_pending = True
                                 pickup_mode    = "vertical"
+                                if state_mgr:
+                                    state_mgr.mark_approach("pickup", f"bottle_{tube_num}")
                         else:
                             print(f"  [SIM] pickup_move({tube_num})")
                             pickup_pending = True
@@ -393,6 +489,8 @@ def main():
                                     tube_slots.discard(slot)
                                     pickup_pending = True
                                     pickup_mode    = "horizontal"
+                                    if state_mgr:
+                                        state_mgr.mark_approach("pickup", slot)
                             else:
                                 tube_slots.discard(slot)
                                 pickup_pending = True
@@ -411,6 +509,8 @@ def main():
                                     print(f"  [ROBOT] side_drop_move({slot}) → {ok}")
                                     if ok:
                                         drop_pending = True
+                                        if state_mgr:
+                                            state_mgr.mark_approach("drop", slot)
                                 else:
                                     drop_pending = True
                             else:
@@ -425,6 +525,8 @@ def main():
                                     print(f"  [ROBOT] drop_move({slot}) → {ok}")
                                     if ok:
                                         drop_pending = True
+                                        if state_mgr:
+                                            state_mgr.mark_approach("drop", slot)
                                 else:
                                     print(f"  [SIM] drop_move({slot})")
                                     drop_pending = True
@@ -442,6 +544,8 @@ def main():
                     if action == "GRAB" and robot:
                         if pickup_pending:
                             robot.pickup_grip()
+                            if state_mgr:
+                                state_mgr.mark_grab()
                             pickup_pending = False
                             holding_tube   = True
                             # pickup_mode는 pickup_move/pickup_lift_move에서 이미 설정됨
@@ -460,6 +564,8 @@ def main():
                             else:
                                 robot.drop_release()
                                 print("[ROBOT] 수직 놓기 + 복귀")
+                            if state_mgr:
+                                state_mgr.mark_release()
                             drop_pending = False
                             holding_tube = False
                             pickup_mode  = None
@@ -598,6 +704,15 @@ def main():
         cv2.putText(display, "  ".join(conn_text),
                     (10, fh-15), cv2.FONT_HERSHEY_SIMPLEX,
                     0.6, (0,255,157), 1)
+
+        # Reset 진행 중 UI 오버레이
+        if _RESET_AVAILABLE and reset_runner and reset_runner.busy:
+            overlay = display.copy()
+            cv2.rectangle(overlay, (0, 0), (fw, 60), (0, 0, 0), -1)
+            display = cv2.addWeighted(overlay, 0.7, display, 0.3, 0)
+            cv2.putText(display, f"[RESET] {reset_runner.status}",
+                        (20, 40), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.85, (0, 200, 255), 2)
 
         show(display)
 
