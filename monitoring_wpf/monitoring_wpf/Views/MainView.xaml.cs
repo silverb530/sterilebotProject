@@ -10,13 +10,14 @@ namespace monitoring_wpf.Views
     public partial class MainView : UserControl
     {
         public Action? OnDriveTest { get; set; }
-        public Action? OnStart     { get; set; }
-        public Action? OnExit      { get; set; }
+        public Action? OnStart { get; set; }
+        public Action? OnExit { get; set; }
 
         private readonly DispatcherTimer _clock = new();
-
         private const int LabCamIndex = 0;
-        private const int ArmCamIndex = 1;
+        // ArmCamIndex(1) 는 메인 화면에서 사용 안 함.
+        // Learning_TWM(시선 트래킹)이 카메라 1번을 점유하기 때문에 충돌 방지.
+        // 로봇암 카메라는 RunningView 에서만 표시됨.
 
         public MainView()
         {
@@ -30,12 +31,12 @@ namespace monitoring_wpf.Views
             {
                 if (IsVisible)
                 {
-                    // ★ 인증된 연구원 이름 표시
                     if (!string.IsNullOrEmpty(MainWindow.AuthName))
                         UserLabel.Text = $"{MainWindow.AuthName} {MainWindow.AuthRole}";
 
+                    // 카메라 0(실험실 조감캠)만 시작 — 카메라 1은 Learning_TWM 사용 중
                     LabCam.Start(cameraIndex: LabCamIndex, noSignalLabel: "조감 카메라 대기 중");
-                    ArmCam.Start(cameraIndex: ArmCamIndex, noSignalLabel: "로봇암 카메라 대기 중");
+                    // ArmCam 은 Start 호출 안 함 → "카메라 신호 없음" 으로 표시됨
                 }
                 else
                 {
@@ -47,19 +48,17 @@ namespace monitoring_wpf.Views
 
         public void SetConnected(bool ok)
         {
-            var hex   = ok ? "#22C55E" : "#EF4444";
+            var hex = ok ? "#22C55E" : "#EF4444";
             var label = ok ? "서버 연결됨" : "서버 연결 안됨";
             var c = (Color)ColorConverter.ConvertFromString(hex);
-            ConnDot.Fill         = new SolidColorBrush(c);
+            ConnDot.Fill = new SolidColorBrush(c);
             ConnLabel.Foreground = new SolidColorBrush(c);
-            ConnLabel.Text       = label;
+            ConnLabel.Text = label;
         }
 
         public void UpdateState(FlaskState state)
         {
             SetConnected(true);
-
-            // 인증된 이름 우선 표시, 없으면 Flask state 사용
             if (string.IsNullOrEmpty(MainWindow.AuthName))
                 UserLabel.Text = state.User;
 
@@ -71,7 +70,7 @@ namespace monitoring_wpf.Views
         }
 
         private void DriveTest_Click(object s, RoutedEventArgs e) => OnDriveTest?.Invoke();
-        private void Start_Click(object s, RoutedEventArgs e)     => OnStart?.Invoke();
-        private void Exit_Click(object s, RoutedEventArgs e)      => OnExit?.Invoke();
+        private void Start_Click(object s, RoutedEventArgs e) => OnStart?.Invoke();
+        private void Exit_Click(object s, RoutedEventArgs e) => OnExit?.Invoke();
     }
 }

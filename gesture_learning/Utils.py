@@ -68,16 +68,11 @@ def apply_transform(M, yaw, pitch):
 #  커서 제어 (ctypes)
 # ────────────────────────────────────────────────
 def mouse_move(x, y):
-    screen_w = ctypes.windll.user32.GetSystemMetrics(0)
-    screen_h = ctypes.windll.user32.GetSystemMetrics(1)
-    norm_x = int(x * 65535 / screen_w)
-    norm_y = int(y * 65535 / screen_h)
-    
-    # mouse_event는 SendInput보다 제한이 적음
-    ctypes.windll.user32.mouse_event(
-        0x0001 | 0x8000,  # MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE
-        norm_x, norm_y, 0, 0
-    )
+    """커서 위치 이동.
+    SetCursorPos 사용 — mouse_event 와 달리 포그라운드 제약이 없어서
+    WPF 등 다른 앱이 포그라운드일 때도 정상 동작.
+    """
+    ctypes.windll.user32.SetCursorPos(int(x), int(y))
 
 def mouse_click():
     """왼쪽 클릭"""

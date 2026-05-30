@@ -57,25 +57,48 @@ import json
 ZONE_TRACKER_PORT = 9002
 zone_sock = None
 
-def connect_zone_tracker():
+_last_connect_try = 0.0
+_RECONNECT_INTERVAL = 2.0   # 연결 실패 시 2초마다 재시도
+
+def connect_zone_tracker(verbose=True):
     global zone_sock
     try:
         zone_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        zone_sock.settimeout(0.5)
         zone_sock.connect(("127.0.0.1", ZONE_TRACKER_PORT))
-        print(f"[INFO] zone_tracker 연결됨")
+        zone_sock.settimeout(None)
+        if verbose:
+            print(f"[INFO] zone_tracker 연결됨", flush=True)
+        return True
     except:
         zone_sock = None
-        print(f"[WARN] zone_tracker 연결 실패")
+        if verbose:
+            print(f"[WARN] zone_tracker 연결 실패 (재시도 대기)", flush=True)
+        return False
 
 def send_cursor(x, y):
-    global zone_sock
+    """zone_tracker 가 켜지면 자동으로 재연결되어 커서 좌표 송신.
+    Zone_tracker 가 나중에 시작돼도(실험 시작 시) 자동 연결됨.
+    """
+    global zone_sock, _last_connect_try
+    import time as _t
+
+    # 연결 안 됐으면 주기적 재시도
     if zone_sock is None:
-        return
+        now = _t.time()
+        if now - _last_connect_try > _RECONNECT_INTERVAL:
+            _last_connect_try = now
+            connect_zone_tracker(verbose=False)
+        if zone_sock is None:
+            return
+
+    # 좌표 송신
     try:
         msg = json.dumps({"type": "CURSOR", "x": int(x), "y": int(y)}) + "\n"
         zone_sock.sendall(msg.encode())
     except:
         zone_sock = None
+        # 다음 send_cursor 호출 시 재연결 시도
 
 # ────────────────────────────────────────────────
 #  카메라 캡처 스레드

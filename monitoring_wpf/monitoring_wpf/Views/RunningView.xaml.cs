@@ -11,13 +11,15 @@ namespace monitoring_wpf.Views
     public partial class RunningView : UserControl
     {
         public Action? OnEmergencyStop { get; set; }
-        public Action? OnResume        { get; set; }
-        public Action? OnExit          { get; set; }
+        public Action? OnResume { get; set; }
+        public Action? OnExit { get; set; }
 
         private bool _isEmergency = false;
-        private bool _isPaused    = false;
+        private bool _isPaused = false;
         private readonly DispatcherTimer _clock = new();
 
+        // Zone_tracker MJPEG 스트림 URL (같은 PC면 localhost, 다른 PC면 그 IP)
+        private const string ZoneTrackerStreamUrl = "http://localhost:8090/stream";
         private const int LabCamIndex = 0;
         private const int ArmCamIndex = 1;
 
@@ -34,7 +36,7 @@ namespace monitoring_wpf.Views
             IsVisibleChanged += (_, _) =>
             {
                 if (IsVisible) StartCameras();
-                else           StopCameras();
+                else StopCameras();
             };
         }
 
@@ -48,26 +50,34 @@ namespace monitoring_wpf.Views
 
         private void ApplyCameraLayout()
         {
-            int mainIdx    = _labIsMain ? LabCamIndex : ArmCamIndex;
-            int pipIdx     = _labIsMain ? ArmCamIndex : LabCamIndex;
             string mainLbl = _labIsMain ? "실험실 조감캠" : "로봇암 카메라";
-            string pipLbl  = _labIsMain ? "로봇암 카메라" : "실험실 조감캠";
-            Color mainDot  = _labIsMain
+            string pipLbl = _labIsMain ? "로봇암 카메라" : "실험실 조감캠";
+            Color mainDot = _labIsMain
                 ? Color.FromRgb(0x4A, 0xDE, 0x80)
                 : Color.FromRgb(0xFB, 0x92, 0x3C);
-            Color pipDot   = _labIsMain
+            Color pipDot = _labIsMain
                 ? Color.FromRgb(0xFB, 0x92, 0x3C)
                 : Color.FromRgb(0x4A, 0xDE, 0x80);
 
             MainCam.Stop();
             PipCam.Stop();
-            MainCam.Start(mainIdx, mainLbl + " 대기 중");
-            PipCam.Start(pipIdx,  pipLbl  + " 대기 중");
+            if (_labIsMain)
+            {
+                // 큰 화면 = Zone_tracker MJPEG 스트림, 작은 화면 = USB 로봇암
+                MainCam.StartMjpeg(ZoneTrackerStreamUrl, mainLbl + " 대기 중");
+                PipCam.Start(ArmCamIndex, pipLbl + " 대기 중");
+            }
+            else
+            {
+                // 큰 화면 = USB 로봇암, 작은 화면 = Zone_tracker MJPEG
+                MainCam.Start(ArmCamIndex, mainLbl + " 대기 중");
+                PipCam.StartMjpeg(ZoneTrackerStreamUrl, pipLbl + " 대기 중");
+            }
 
             MainLabelText.Text = mainLbl;
-            PipLabelText.Text  = pipLbl;
-            MainDot.Fill       = new SolidColorBrush(mainDot);
-            PipDot.Fill        = new SolidColorBrush(pipDot);
+            PipLabelText.Text = pipLbl;
+            MainDot.Fill = new SolidColorBrush(mainDot);
+            PipDot.Fill = new SolidColorBrush(pipDot);
         }
 
         private void SwapCameras()
@@ -96,49 +106,49 @@ namespace monitoring_wpf.Views
 
             if (emergency)
             {
-                ScenePanel.Visibility     = Visibility.Collapsed;
+                ScenePanel.Visibility = Visibility.Collapsed;
                 EmergencyPanel.Visibility = Visibility.Visible;
 
-                BadgeBg.Color       = Color.FromRgb(0x7F, 0x1D, 0x1D);
+                BadgeBg.Color = Color.FromRgb(0x7F, 0x1D, 0x1D);
                 BadgeDotColor.Color = Color.FromRgb(0xEF, 0x44, 0x44);
-                BadgeFg.Color       = Color.FromRgb(0xEF, 0x44, 0x44);
-                BadgeText.Text      = "비상상황 — 중지";
+                BadgeFg.Color = Color.FromRgb(0xEF, 0x44, 0x44);
+                BadgeText.Text = "비상상황 — 중지";
 
-                EstopBorder.Background  = new SolidColorBrush(Color.FromRgb(0x7F, 0x1D, 0x1D));
+                EstopBorder.Background = new SolidColorBrush(Color.FromRgb(0x7F, 0x1D, 0x1D));
                 EstopBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFE, 0xCA, 0xCA));
-                EstopIcon.Foreground    = new SolidColorBrush(Colors.White);
-                EstopIcon.Text          = "✓";
-                EstopLabel.Foreground   = new SolidColorBrush(Colors.White);
-                EstopLabel.Text         = "정지 해제";
+                EstopIcon.Foreground = new SolidColorBrush(Colors.White);
+                EstopIcon.Text = "✓";
+                EstopLabel.Foreground = new SolidColorBrush(Colors.White);
+                EstopLabel.Text = "정지 해제";
 
-                StatusChip.Background  = new SolidColorBrush(Color.FromRgb(0xFE, 0xF2, 0xF2));
+                StatusChip.Background = new SolidColorBrush(Color.FromRgb(0xFE, 0xF2, 0xF2));
                 StatusChip.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFC, 0xA5, 0xA5));
-                SafetyDot.Fill         = new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+                SafetyDot.Fill = new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
                 StatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(0x7F, 0x1D, 0x1D));
-                StatusLabel.Text       = "비상상황";
+                StatusLabel.Text = "비상상황";
             }
             else
             {
-                ScenePanel.Visibility     = Visibility.Visible;
+                ScenePanel.Visibility = Visibility.Visible;
                 EmergencyPanel.Visibility = Visibility.Collapsed;
 
-                BadgeBg.Color       = Color.FromRgb(0x15, 0x80, 0x3D);
+                BadgeBg.Color = Color.FromRgb(0x15, 0x80, 0x3D);
                 BadgeDotColor.Color = Color.FromRgb(0x4A, 0xDE, 0x80);
-                BadgeFg.Color       = Color.FromRgb(0x4A, 0xDE, 0x80);
-                BadgeText.Text      = "실행중";
+                BadgeFg.Color = Color.FromRgb(0x4A, 0xDE, 0x80);
+                BadgeText.Text = "실행중";
 
-                EstopBorder.Background  = new SolidColorBrush(Color.FromRgb(0xFE, 0xF2, 0xF2));
+                EstopBorder.Background = new SolidColorBrush(Color.FromRgb(0xFE, 0xF2, 0xF2));
                 EstopBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFC, 0xA5, 0xA5));
-                EstopIcon.Foreground    = new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
-                EstopIcon.Text          = "⚠";
-                EstopLabel.Foreground   = new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
-                EstopLabel.Text         = "비상 정지";
+                EstopIcon.Foreground = new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+                EstopIcon.Text = "⚠";
+                EstopLabel.Foreground = new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+                EstopLabel.Text = "비상 정지";
 
-                StatusChip.Background  = new SolidColorBrush(Color.FromRgb(0xDC, 0xFC, 0xE7));
+                StatusChip.Background = new SolidColorBrush(Color.FromRgb(0xDC, 0xFC, 0xE7));
                 StatusChip.BorderBrush = new SolidColorBrush(Color.FromRgb(0x86, 0xEF, 0xAC));
-                SafetyDot.Fill         = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
+                SafetyDot.Fill = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
                 StatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(0x15, 0x80, 0x3D));
-                StatusLabel.Text       = "안전";
+                StatusLabel.Text = "안전";
             }
         }
 
@@ -147,9 +157,9 @@ namespace monitoring_wpf.Views
         // ══════════════════════════════════════════
         public void UpdateState(FlaskState state)
         {
-            GasVal.Text  = $"{state.Gas:F0}";
+            GasVal.Text = $"{state.Gas:F0}";
             TempVal.Text = $"{state.Temp:F1}";
-            HumVal.Text  = $"{state.Humidity:F0}";
+            HumVal.Text = $"{state.Humidity:F0}";
 
             GasVal.Foreground = state.Gas > 80
                 ? new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26))
@@ -160,14 +170,14 @@ namespace monitoring_wpf.Views
             if (_isEmergency) return;
 
             bool warn = state.StatusText.Contains("경고") || state.StatusText.Contains("위험");
-            StatusLabel.Text       = warn ? "경고" : "안전";
-            SafetyDot.Fill         = new SolidColorBrush(warn
+            StatusLabel.Text = warn ? "경고" : "안전";
+            SafetyDot.Fill = new SolidColorBrush(warn
                 ? Color.FromRgb(0xD9, 0x77, 0x06)
                 : Color.FromRgb(0x16, 0xA3, 0x4A));
             StatusLabel.Foreground = new SolidColorBrush(warn
                 ? Color.FromRgb(0x92, 0x40, 0x0E)
                 : Color.FromRgb(0x15, 0x80, 0x3D));
-            StatusChip.Background  = new SolidColorBrush(warn
+            StatusChip.Background = new SolidColorBrush(warn
                 ? Color.FromRgb(0xFF, 0xF7, 0xED)
                 : Color.FromRgb(0xDC, 0xFC, 0xE7));
             StatusChip.BorderBrush = new SolidColorBrush(warn
@@ -181,7 +191,7 @@ namespace monitoring_wpf.Views
         private void EmergencyStop_Click(object s, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (_isEmergency) OnResume?.Invoke();
-            else              OnEmergencyStop?.Invoke();
+            else OnEmergencyStop?.Invoke();
         }
 
         private void PauseResume_Click(object s, RoutedEventArgs e)
@@ -213,7 +223,7 @@ namespace monitoring_wpf.Views
             var slot = this.FindName($"Slot{slotName}") as Ellipse;
             if (slot != null)
             {
-                slot.Fill   = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E)); // 초록
+                slot.Fill = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E)); // 초록
                 slot.Stroke = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
                 slot.StrokeThickness = 3;
                 _lastHighlighted = slot;
@@ -225,7 +235,7 @@ namespace monitoring_wpf.Views
         {
             if (_lastHighlighted != null)
             {
-                _lastHighlighted.Fill   = new SolidColorBrush(Color.FromRgb(0x3B, 0x82, 0xF6)); // 원래 파란색
+                _lastHighlighted.Fill = new SolidColorBrush(Color.FromRgb(0x3B, 0x82, 0xF6)); // 원래 파란색
                 _lastHighlighted.Stroke = new SolidColorBrush(Color.FromRgb(0x25, 0x63, 0xEB));
                 _lastHighlighted.StrokeThickness = 1.5;
                 _lastHighlighted = null;
