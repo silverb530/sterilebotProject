@@ -39,47 +39,71 @@ namespace monitoring_wpf.Services
         }
 
         /// <summary>
-        /// 명령줄에 우리 스크립트 이름이 포함된 python.exe / pythonw.exe 만 죽임.
+        /// 명령줄에 우리 스크립트 이름이 포함된 python.exe / pythonw.exe / py.exe 를 모두 죽임.
+        /// venv Python, 시스템 Python 구분 없이 — 명령줄만 보고 우리 것이면 정리.
         /// app.py 등 다른 Python 프로세스는 건드리지 않음.
         /// </summary>
         public static void KillOurPreviousPythons()
         {
+            // 1단계: WMI 로 우리 스크립트 실행 중인 모든 python 의 PID 수집
+            //         (Process.Kill 도중 다른 항목에 영향 없도록 먼저 PID 만 모음)
+            var targetPids = new List<(int pid, string cmd)>();
             try
             {
                 using var searcher = new ManagementObjectSearcher(
                     "SELECT ProcessId, CommandLine FROM Win32_Process " +
                     "WHERE Name = 'python.exe' OR Name = 'pythonw.exe' OR Name = 'py.exe'");
 
-                int killed = 0;
                 foreach (ManagementBaseObject obj in searcher.Get())
                 {
+                    string cmd = obj["CommandLine"] as string ?? "";
+                    if (string.IsNullOrEmpty(cmd)) continue;
+                    if (!OurScripts.Any(s => cmd.Contains(s))) continue;
+
                     try
                     {
-                        string cmd = obj["CommandLine"] as string ?? "";
-                        if (OurScripts.Any(s => cmd.Contains(s)))
-                        {
-                            uint pid = (uint)obj["ProcessId"];
-                            try
-                            {
-                                var p = Process.GetProcessById((int)pid);
-                                p.Kill(entireProcessTree: true);
-                                killed++;
-                                Debug.WriteLine($"[PythonProcessManager] 좀비 PID {pid} 정리: {cmd}");
-                            }
-                            catch (ArgumentException) { /* 이미 종료됨 */ }
-                            catch (InvalidOperationException) { /* 이미 종료됨 */ }
-                        }
+                        uint pid = (uint)obj["ProcessId"];
+                        targetPids.Add(((int)pid, cmd));
                     }
-                    catch { /* 일부 프로세스 권한 없음 — 무시 */ }
+                    catch { /* PID 변환 실패 — 다음 항목으로 */ }
                 }
-                if (killed > 0)
-                    Debug.WriteLine($"[PythonProcessManager] 시작 시 좀비 정리: {killed}개");
+                Debug.WriteLine($"[PythonProcessManager] WMI 조회 — 우리 좀비 후보 {targetPids.Count}개");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[PythonProcessManager] 좀비 정리 실패 (무시): {ex.Message}");
-                // System.Management 패키지가 없거나 WMI 오류 — 무시하고 진행
+                Debug.WriteLine($"[PythonProcessManager] WMI 조회 실패 (무시): {ex.Message}");
+                return;
             }
+
+            // 2단계: 수집한 PID 들을 하나씩 Kill — 각각 독립된 try/catch
+            int killed = 0;
+            foreach (var (pid, cmd) in targetPids)
+            {
+                try
+                {
+                    var p = Process.GetProcessById(pid);
+                    p.Kill(entireProcessTree: true);
+                    killed++;
+                    Debug.WriteLine($"[PythonProcessManager] 좀비 PID {pid} 정리: {cmd}");
+                }
+                catch (ArgumentException)
+                {
+                    // 이미 종료됨 — 정상
+                    Debug.WriteLine($"[PythonProcessManager] PID {pid} 이미 종료됨 (skip)");
+                }
+                catch (InvalidOperationException)
+                {
+                    // 이미 종료됨 — 정상
+                    Debug.WriteLine($"[PythonProcessManager] PID {pid} 이미 종료됨 (skip)");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[PythonProcessManager] PID {pid} Kill 실패: {ex.Message}");
+                }
+            }
+
+            if (targetPids.Count > 0)
+                Debug.WriteLine($"[PythonProcessManager] 시작 시 좀비 정리: {killed}/{targetPids.Count}개");
         }
 
         /// <summary>
