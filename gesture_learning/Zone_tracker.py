@@ -216,7 +216,6 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)         # 자동 초점 OFF
-    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # 노출 수동
     fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     fh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"[INFO] 웹캠: {fw}x{fh}")
