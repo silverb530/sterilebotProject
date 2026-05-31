@@ -388,20 +388,53 @@ namespace monitoring_wpf.Views
             }
         }
 
-        // 슬롯 이름 매핑 (XAML 의 x:Name 과 일치)
-        //  시약대 (1~4)  : SlotSyak1, SlotSyak2, SlotSyak3, SlotSyak4
-        //  A 거치대 (1~4): SlotA1, SlotA2, SlotA3, SlotA4
-        //  B 거치대 (1~4): SlotB1, SlotB2, SlotB3, SlotB4
-        //    ※ B 는 화면에 거꾸로(4,3,2,1) 표시되지만 엔진 이름은 1,2,3,4 — 의도된 설계
+        // ── 슬롯 이름 매핑 (XAML 의 x:Name 과 일치) ──
+        //  시약대 (1~4)   : SlotSyak1 ~ SlotSyak4
+        //  A 거치대 (1~4) : SlotA1 ~ SlotA4 (화면 표시도 1,2,3,4)
+        //  B 거치대 (1~4) : SlotB1 ~ SlotB4 (화면 표시는 거꾸로 4,3,2,1)
+        //    ※ B 는 사용자 인식 기준 "1번" 슬롯이 화면 위치상 SlotB4 — 매핑 역순 적용
         private static string BottleSlotName(int n) => $"SlotSyak{n}";
-        // A/B 슬롯: "SlotA1"~"SlotB4" (HighlightSlot 호출 패턴과 동일)
-        private static string TubeSlotName(string slot) => $"Slot{slot}";
 
-        // 색상
+        private static string TubeSlotName(string slot)
+        {
+            // A 슬롯은 그대로 (SlotA1 = 화면 "1")
+            // B 슬롯은 역매핑 (서버 "B1" → 화면 "1"이 보이는 자리 = SlotB4)
+            if (slot.Length == 2 && slot[0] == 'B' && char.IsDigit(slot[1]))
+            {
+                int n = slot[1] - '0';                  // "B1" → 1
+                int flipped = 5 - n;                    // 1↔4, 2↔3
+                return $"SlotB{flipped}";
+            }
+            return $"Slot{slot}";   // SlotA1 등
+        }
+
+        // ── 색상 ──
+        // 시약대용
         private static readonly Color ColorOrigin = Color.FromRgb(0x3B, 0x82, 0xF6);  // 파랑 — 시약대 원위치
-        private static readonly Color ColorPlaced = Color.FromRgb(0x22, 0xC5, 0x5E);  // 초록 — 슬롯에 시험관 있음
-        private static readonly Color ColorEmpty = Color.FromRgb(0xCB, 0xD5, 0xE1);  // 회색 — 비어있음
+        private static readonly Color ColorEmpty = Color.FromRgb(0xCB, 0xD5, 0xE1);  // 회색 — 비어있음 (옮겨짐 표시)
         private static readonly Color ColorHolding = Color.FromRgb(0xF5, 0x9E, 0x0B);  // 주황 — 로봇이 잡은 시험관 자리
+
+        // 시험관 4개를 구분하기 위한 색상 (placed 시 사용)
+        private static readonly Color[] TubeColors = new Color[]
+        {
+            Color.FromRgb(0xEF, 0x44, 0x44),  // tube_1 → 빨강
+            Color.FromRgb(0xF5, 0x9E, 0x0B),  // tube_2 → 주황(노랑계열)  ※ Holding 과 비슷하지만 구분됨
+            Color.FromRgb(0x10, 0xB9, 0x81),  // tube_3 → 초록(에메랄드)
+            Color.FromRgb(0x8B, 0x5C, 0xF6),  // tube_4 → 보라
+        };
+
+        private static Color TubeColorOf(string tubeKey)
+        {
+            // "tube_1" → 인덱스 0
+            if (tubeKey.StartsWith("tube_") && int.TryParse(tubeKey.Substring(5), out int n)
+                && n >= 1 && n <= 4)
+                return TubeColors[n - 1];
+            return Color.FromRgb(0x6B, 0x72, 0x80);  // fallback (회색)
+        }
+
+        // 슬롯 옆 시험관 번호 라벨 (동적 생성/관리)
+        // key = 슬롯명 (예: "A1"), value = 그 슬롯에 띄워둔 TextBlock
+        private readonly Dictionary<string, TextBlock> _slotLabels = new();
 
         private void UpdateBatchMap(StateResponse state)
         {
@@ -424,7 +457,7 @@ namespace monitoring_wpf.Views
             }
 
             // ── A/B 슬롯 (A1~A4, B1~B4) ──
-            //    어떤 시험관이 거기 있는지 역매핑
+            //    어떤 시험관이 거기 있는지 역매핑 (server 의 slot 명 기준 — "B1" 등)
             var slotToTube = new Dictionary<string, string>();
             foreach (var kv in tubes)
             {
@@ -435,14 +468,30 @@ namespace monitoring_wpf.Views
 
             foreach (var slot in new[] { "A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4" })
             {
-                if (FindName(TubeSlotName(slot)) is not Ellipse el) continue;
+                string xamlName = TubeSlotName(slot);   // B 는 여기서 역매핑됨
+                if (FindName(xamlName) is not Ellipse el) continue;
 
                 // 외부 하이라이트(_lastHighlighted)는 건드리지 않음 (Dwell 강조 보호)
-                if (el == _lastHighlighted) continue;
+                if (el == _lastHighlighted)
+                {
+                    EnsureSlotLabel(slot, el, null);    // 라벨도 정리
+                    continue;
+                }
 
-                el.Fill = slotToTube.ContainsKey(slot)
-                    ? new SolidColorBrush(ColorPlaced)
-                    : new SolidColorBrush(ColorEmpty);
+                if (slotToTube.TryGetValue(slot, out var tube))
+                {
+                    // 시험관 있음 — 그 시험관 고유 색으로
+                    el.Fill = new SolidColorBrush(TubeColorOf(tube));
+                    // 번호 라벨 표시 (예: "1" — tube_1 의 1)
+                    string num = tube.StartsWith("tube_") ? tube.Substring(5) : tube;
+                    EnsureSlotLabel(slot, el, num);
+                }
+                else
+                {
+                    // 비어있음 — 회색
+                    el.Fill = new SolidColorBrush(ColorEmpty);
+                    EnsureSlotLabel(slot, el, null);    // 라벨 제거
+                }
             }
 
             // ── 상단 텍스트: 로봇이 무엇을 들고 있는지 ──
@@ -455,6 +504,58 @@ namespace monitoring_wpf.Views
                 else
                     MapStatusText.Text = "";
             }
+        }
+
+        /// <summary>
+        /// 슬롯 옆에 시험관 번호 라벨 생성/갱신/제거.
+        /// num == null 이면 라벨 제거. num 이 있으면 슬롯 옆에 작게 표시.
+        /// </summary>
+        private void EnsureSlotLabel(string slot, Ellipse slotEllipse, string? num)
+        {
+            // 슬롯 라벨이 들어갈 Canvas 찾기 — slotEllipse 의 부모는 Grid,
+            // 그 Grid 의 부모가 Canvas (배치도 캔버스).
+            if (slotEllipse.Parent is not Grid slotGrid) return;
+            if (slotGrid.Parent is not Canvas canvas) return;
+
+            if (num == null)
+            {
+                // 라벨 제거
+                if (_slotLabels.TryGetValue(slot, out var existing))
+                {
+                    canvas.Children.Remove(existing);
+                    _slotLabels.Remove(slot);
+                }
+                return;
+            }
+
+            // 슬롯 Grid 의 캔버스 좌표
+            double left = Canvas.GetLeft(slotGrid);
+            double top = Canvas.GetTop(slotGrid);
+
+            // 라벨 위치: 슬롯 우상단 모서리 위에 살짝 띄움
+            //   (Width=32 Height=32 슬롯 기준 → 우상단)
+            double labelLeft = left + 22;   // 슬롯 우측쯤
+            double labelTop = top - 12;   // 슬롯 위로 12
+
+            if (!_slotLabels.TryGetValue(slot, out var tb))
+            {
+                tb = new TextBlock
+                {
+                    FontFamily = new FontFamily("Segoe UI"),
+                    FontSize = 11,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B)),
+                    Background = new SolidColorBrush(Color.FromArgb(0xEE, 0xFF, 0xFF, 0xFF)),
+                    Padding = new Thickness(3, 0, 3, 0),
+                };
+                canvas.Children.Add(tb);
+                Panel.SetZIndex(tb, 100);   // 다른 요소 위로
+                _slotLabels[slot] = tb;
+            }
+
+            tb.Text = num;
+            Canvas.SetLeft(tb, labelLeft);
+            Canvas.SetTop(tb, labelTop);
         }
     }
 }
