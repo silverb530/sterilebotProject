@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Management;        // ★ NuGet "System.Management" 패키지 필요
 using System.Windows;
 
 namespace monitoring_wpf.Services
@@ -13,6 +15,14 @@ namespace monitoring_wpf.Services
     /// </summary>
     public class PythonProcessManager
     {
+        // 우리가 띄우는 스크립트 이름들 — 좀비 식별용
+        private static readonly string[] OurScripts = new[]
+        {
+            "Learning_TWM.py",
+            "Zone_tracker.py",
+            "gesture_control_v6.py",
+        };
+
         // 트래킹 프로세스 (Learning_TWM) — WPF 종료 시까지 유지
         private readonly List<Process> _trackingProcs = new();
         // 실험 프로세스 (Zone_tracker, gesture_control) — 실험 종료 시 정리
@@ -20,6 +30,57 @@ namespace monitoring_wpf.Services
 
         // gesture_learning 폴더 경로 (실행 시 자동 탐색)
         private static readonly string GestureDir = ResolveGestureDir();
+
+        // 생성 시 — 이전 세션에서 살아남은 우리 Python 좀비 자동 청소
+        // (이전 WPF 가 비정상 종료되었거나, Kill 이 실패한 경우 대비)
+        public PythonProcessManager()
+        {
+            KillOurPreviousPythons();
+        }
+
+        /// <summary>
+        /// 명령줄에 우리 스크립트 이름이 포함된 python.exe / pythonw.exe 만 죽임.
+        /// app.py 등 다른 Python 프로세스는 건드리지 않음.
+        /// </summary>
+        public static void KillOurPreviousPythons()
+        {
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    "SELECT ProcessId, CommandLine FROM Win32_Process " +
+                    "WHERE Name = 'python.exe' OR Name = 'pythonw.exe' OR Name = 'py.exe'");
+
+                int killed = 0;
+                foreach (ManagementBaseObject obj in searcher.Get())
+                {
+                    try
+                    {
+                        string cmd = obj["CommandLine"] as string ?? "";
+                        if (OurScripts.Any(s => cmd.Contains(s)))
+                        {
+                            uint pid = (uint)obj["ProcessId"];
+                            try
+                            {
+                                var p = Process.GetProcessById((int)pid);
+                                p.Kill(entireProcessTree: true);
+                                killed++;
+                                Debug.WriteLine($"[PythonProcessManager] 좀비 PID {pid} 정리: {cmd}");
+                            }
+                            catch (ArgumentException) { /* 이미 종료됨 */ }
+                            catch (InvalidOperationException) { /* 이미 종료됨 */ }
+                        }
+                    }
+                    catch { /* 일부 프로세스 권한 없음 — 무시 */ }
+                }
+                if (killed > 0)
+                    Debug.WriteLine($"[PythonProcessManager] 시작 시 좀비 정리: {killed}개");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[PythonProcessManager] 좀비 정리 실패 (무시): {ex.Message}");
+                // System.Management 패키지가 없거나 WMI 오류 — 무시하고 진행
+            }
+        }
 
         /// <summary>
         /// exe 위치에서 부모 폴더로 올라가며 gesture_learning 폴더를 찾음.
@@ -39,7 +100,6 @@ namespace monitoring_wpf.Services
                 dir = dir.Parent;
             }
 
-            // 못 찾았으면 빈 문자열 반환 — Launch 에서 에러 메시지 표시
             MessageBox.Show(
                 "gesture_learning 폴더를 찾을 수 없습니다.\n" +
                 "프로젝트 루트 아래에 gesture_learning/Learning_TWM.py 가 있어야 합니다.",
@@ -61,7 +121,6 @@ namespace monitoring_wpf.Services
 
         /// <summary>
         /// 얼굴 인증 통과 직후 호출. Learning_TWM 만 띄워서 시선 커서 활성화.
-        /// 이후 사용자는 시선만으로 "시작" 버튼을 클릭 가능.
         /// </summary>
         public void StartTracking(string userName)
         {
@@ -71,8 +130,7 @@ namespace monitoring_wpf.Services
         }
 
         /// <summary>
-        /// "시작" 버튼 클릭 시 호출. Zone_tracker + gesture_control 만 실행
-        /// (Learning_TWM 은 이미 StartTracking 으로 도는 중).
+        /// "시작" 버튼 클릭 시 호출. Zone_tracker + gesture_control 실행.
         /// </summary>
         public void StartAll(string userName, bool useRobot, string robotIp, int robotPort)
         {
@@ -124,8 +182,6 @@ namespace monitoring_wpf.Services
 
                 var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
-                // Python 의 stdout/stderr 는 Visual Studio 의 [디버그] 출력 창으로
-                // (로그 파일은 만들지 않음 — 사람마다 경로/권한 문제 회피)
                 p.OutputDataReceived += (_, e) =>
                 {
                     if (e.Data != null) Debug.WriteLine($"[{scriptName}] {e.Data}");
@@ -149,18 +205,11 @@ namespace monitoring_wpf.Services
             }
         }
 
-        /// <summary>
-        /// 실험 종료: Zone_tracker, gesture_control 만 종료.
-        /// Learning_TWM(시선 트래킹) 은 계속 작동.
-        /// </summary>
         public void StopExperiment()
         {
             KillProcs(_experimentProcs);
         }
 
-        /// <summary>
-        /// WPF 종료: 모든 Python 프로세스 종료.
-        /// </summary>
         public void StopAll()
         {
             KillProcs(_experimentProcs);
@@ -185,23 +234,6 @@ namespace monitoring_wpf.Services
                 }
             }
             procs.Clear();
-        }
-
-        /// <summary>
-        /// (정적, 옵션) 시작 시 좀비 python.exe 청소.
-        /// 주의: app.py 같은 다른 Python 도 같이 죽이므로 기본적으로 호출 안 함.
-        /// 필요 시 수동으로 PowerShell 에서: taskkill /F /IM python.exe
-        /// </summary>
-        public static void KillZombiePythons()
-        {
-            try
-            {
-                foreach (var p in Process.GetProcessesByName("python"))
-                    try { p.Kill(entireProcessTree: true); } catch { }
-                foreach (var p in Process.GetProcessesByName("pythonw"))
-                    try { p.Kill(entireProcessTree: true); } catch { }
-            }
-            catch { }
         }
     }
 }
