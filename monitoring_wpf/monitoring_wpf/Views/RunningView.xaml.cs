@@ -258,7 +258,7 @@ namespace monitoring_wpf.Views
 
         private void Exit_Click(object s, RoutedEventArgs e) => OnExit?.Invoke();
 
-        private void Reset_Click(object s, RoutedEventArgs e)
+        private async void Reset_Click(object s, RoutedEventArgs e)
         {
             // 확인 다이얼로그
             var result = MessageBox.Show(
@@ -276,42 +276,35 @@ namespace monitoring_wpf.Views
             SetEmergency(false);
             ClearMapHighlight();
 
-            // Zone_tracker 에게 reset 신호 전송: gesture_learning/reset_trigger.flag 생성
+            // Pi 서버의 /reset 엔드포인트 호출 — sterilebot_server.py 가 run_reset() 실행
             try
             {
-                string? gestureDir = FindGestureLearningDir();
-                if (gestureDir == null)
+                using var http = new System.Net.Http.HttpClient
                 {
-                    MessageBox.Show("gesture_learning 폴더를 찾을 수 없습니다.\nreset 신호 전송 실패.",
-                                    "리셋 오류", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
+                    Timeout = TimeSpan.FromSeconds(10)
+                };
+                var resp = await http.GetAsync("http://192.168.0.27:5001/reset");
+                string body = await resp.Content.ReadAsStringAsync();
+                System.Diagnostics.Debug.WriteLine($"[Reset] /reset 응답: {body}");
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    MessageBox.Show($"리셋 요청 실패: {resp.StatusCode}\n{body}",
+                                    "리셋 오류",
+                                    MessageBoxButton.OK,
+                                    MessageBoxImage.Warning);
                 }
-                string flagPath = System.IO.Path.Combine(gestureDir, "reset_trigger.flag");
-                File.WriteAllText(flagPath, DateTime.Now.ToString("o"));
-                System.Diagnostics.Debug.WriteLine($"[Reset] 신호 파일 생성: {flagPath}");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"리셋 신호 전송 실패: {ex.Message}",
-                                "리셋 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"리셋 요청 전송 실패: {ex.Message}\n\n" +
+                                "Pi 서버(192.168.0.27:5001)가 켜져 있는지 확인하세요.",
+                                "리셋 오류",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
             }
         }
 
-        /// <summary>
-        /// exe 폴더에서 위로 올라가며 gesture_learning 폴더 탐색.
-        /// </summary>
-        private static string? FindGestureLearningDir()
-        {
-            var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
-            while (dir != null)
-            {
-                string candidate = System.IO.Path.Combine(dir.FullName, "gesture_learning");
-                if (Directory.Exists(candidate))
-                    return candidate;
-                dir = dir.Parent;
-            }
-            return null;
-        }
 
         // ══════════════════════════════════════════
         // 맵 시험관 하이라이트
