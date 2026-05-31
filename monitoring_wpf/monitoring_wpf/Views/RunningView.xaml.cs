@@ -1,6 +1,9 @@
 using System;
 using System.IO;
+using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,6 +23,11 @@ namespace monitoring_wpf.Views
         private bool _isEmergency = false;
         private bool _isPaused = false;
         private readonly DispatcherTimer _clock = new();
+
+        // 배치도 폴링 — 1초마다 Pi /state 호출 → 시험관 현황 갱신
+        private readonly DispatcherTimer _statePoll = new();
+        private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
+        private const string PiBase = "http://192.168.0.27:5001";
 
         // Zone_tracker MJPEG 스트림 URL (같은 PC면 localhost, 다른 PC면 그 IP)
         private const string ZoneTrackerStreamUrl = "http://localhost:8090/stream";
@@ -69,10 +77,22 @@ namespace monitoring_wpf.Views
             _clock.Tick += (_, _) => ClockText.Text = DateTime.Now.ToString("HH:mm:ss");
             _clock.Start();
 
+            // 배치도 폴링
+            _statePoll.Interval = TimeSpan.FromSeconds(1);
+            _statePoll.Tick += async (_, _) => await PollState();
+
             IsVisibleChanged += (_, _) =>
             {
-                if (IsVisible) StartCameras();
-                else StopCameras();
+                if (IsVisible)
+                {
+                    StartCameras();
+                    _statePoll.Start();
+                }
+                else
+                {
+                    StopCameras();
+                    _statePoll.Stop();
+                }
             };
         }
 
@@ -336,6 +356,105 @@ namespace monitoring_wpf.Views
                 _lastHighlighted = null;
             }
             MapStatusText.Text = "";
+        }
+
+        // ══════════════════════════════════════════
+        //  배치도 폴링 — Pi /state 받아 슬롯 색 갱신
+        // ══════════════════════════════════════════
+        private class StateResponse
+        {
+            [JsonPropertyName("tubes")]
+            public Dictionary<string, string>? Tubes { get; set; }
+            [JsonPropertyName("holding")]
+            public string? Holding { get; set; }
+            [JsonPropertyName("busy")]
+            public bool Busy { get; set; }
+        }
+
+        private async Task PollState()
+        {
+            try
+            {
+                var resp = await _http.GetAsync($"{PiBase}/state");
+                if (!resp.IsSuccessStatusCode) return;
+                var json = await resp.Content.ReadAsStringAsync();
+                var data = JsonSerializer.Deserialize<StateResponse>(json);
+                if (data?.Tubes == null) return;
+                UpdateBatchMap(data);
+            }
+            catch
+            {
+                // 네트워크 일시 오류 무시 — 다음 폴링에서 자동 복구
+            }
+        }
+
+        // 슬롯 이름 매핑 (XAML 의 x:Name 과 일치)
+        //  시약대 (1~4)  : SlotSyak1, SlotSyak2, SlotSyak3, SlotSyak4
+        //  A 거치대 (1~4): SlotA1, SlotA2, SlotA3, SlotA4
+        //  B 거치대 (1~4): SlotB1, SlotB2, SlotB3, SlotB4
+        //    ※ B 는 화면에 거꾸로(4,3,2,1) 표시되지만 엔진 이름은 1,2,3,4 — 의도된 설계
+        private static string BottleSlotName(int n) => $"SlotSyak{n}";
+        // A/B 슬롯: "SlotA1"~"SlotB4" (HighlightSlot 호출 패턴과 동일)
+        private static string TubeSlotName(string slot) => $"Slot{slot}";
+
+        // 색상
+        private static readonly Color ColorOrigin = Color.FromRgb(0x3B, 0x82, 0xF6);  // 파랑 — 시약대 원위치
+        private static readonly Color ColorPlaced = Color.FromRgb(0x22, 0xC5, 0x5E);  // 초록 — 슬롯에 시험관 있음
+        private static readonly Color ColorEmpty = Color.FromRgb(0xCB, 0xD5, 0xE1);  // 회색 — 비어있음
+        private static readonly Color ColorHolding = Color.FromRgb(0xF5, 0x9E, 0x0B);  // 주황 — 로봇이 잡은 시험관 자리
+
+        private void UpdateBatchMap(StateResponse state)
+        {
+            var tubes = state.Tubes!;
+
+            // ── 시약대 슬롯 (1~4) ──
+            for (int i = 1; i <= 4; i++)
+            {
+                if (FindName(BottleSlotName(i)) is not Ellipse el) continue;
+
+                string tubeKey = $"tube_{i}";
+                if (!tubes.TryGetValue(tubeKey, out var loc)) continue;
+
+                if (loc == $"bottle_{i}")
+                    el.Fill = new SolidColorBrush(ColorOrigin);     // 원위치 → 파랑
+                else if (loc == "HELD")
+                    el.Fill = new SolidColorBrush(ColorHolding);    // 잡힘 → 주황
+                else
+                    el.Fill = new SolidColorBrush(ColorEmpty);      // 슬롯으로 옮겨짐 → 회색(빈 표시)
+            }
+
+            // ── A/B 슬롯 (A1~A4, B1~B4) ──
+            //    어떤 시험관이 거기 있는지 역매핑
+            var slotToTube = new Dictionary<string, string>();
+            foreach (var kv in tubes)
+            {
+                var loc = kv.Value;
+                if (loc.Length == 2 && (loc[0] == 'A' || loc[0] == 'B') && char.IsDigit(loc[1]))
+                    slotToTube[loc] = kv.Key;
+            }
+
+            foreach (var slot in new[] { "A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4" })
+            {
+                if (FindName(TubeSlotName(slot)) is not Ellipse el) continue;
+
+                // 외부 하이라이트(_lastHighlighted)는 건드리지 않음 (Dwell 강조 보호)
+                if (el == _lastHighlighted) continue;
+
+                el.Fill = slotToTube.ContainsKey(slot)
+                    ? new SolidColorBrush(ColorPlaced)
+                    : new SolidColorBrush(ColorEmpty);
+            }
+
+            // ── 상단 텍스트: 로봇이 무엇을 들고 있는지 ──
+            if (_lastHighlighted == null)
+            {
+                if (state.Holding != null)
+                    MapStatusText.Text = $"🦾 {state.Holding} 잡음";
+                else if (state.Busy)
+                    MapStatusText.Text = "🦾 동작 중...";
+                else
+                    MapStatusText.Text = "";
+            }
         }
     }
 }
