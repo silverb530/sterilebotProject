@@ -12,11 +12,6 @@
 #  ▶ 포트
 #    9002: 커서 좌표 수신 (Learning_TWM)
 #    9003: 제스처 수신 (gesture_control_v6)
-#
-#  ▶ CLI 인자 (WPF 자동 실행 시 전달)
-#    --robot yes/no   : 로봇 연결 여부
-#    --ip 192.168.0.27 : Pi 서버 IP
-#    --port 5001       : Pi 서버 포트
 # =============================================================
 
 import cv2
@@ -27,7 +22,6 @@ import time
 import socket
 import threading
 import ctypes
-import argparse
 
 # ────────────────────────────────────────────────
 #  설정값
@@ -132,24 +126,6 @@ def gesture_receiver():
             time.sleep(1.0)
 
 # ────────────────────────────────────────────────
-#  CLI 인자 → input 우회
-# ────────────────────────────────────────────────
-def safe_input(prompt, default, cli_value=None):
-    """
-    CLI 인자가 있으면 그걸 우선 사용 (WPF 자동 실행 시).
-    없으면 input() 시도, stdin 차단 시 기본값 반환.
-    """
-    if cli_value is not None:
-        print(f"[INFO] {prompt}{cli_value} (CLI 인자)")
-        return cli_value
-    try:
-        val = input(prompt).strip()
-        return val if val else default
-    except (EOFError, OSError):
-        print(f"[INFO] stdin 없음 → 기본값 사용: {default}")
-        return default
-
-# ────────────────────────────────────────────────
 #  main
 # ────────────────────────────────────────────────
 def main():
@@ -157,42 +133,16 @@ def main():
     print("  SterileBot - 2단계 구역 트래커")
     print("=" * 55)
 
-    # CLI 인자 파싱 (WPF 가 전달: --robot yes --ip 192.168.0.27 --port 5001)
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--robot", default=None, help="yes/no")
-    parser.add_argument("--ip",    default=None)
-    parser.add_argument("--port",  default=None)
-    args, _ = parser.parse_known_args()
-
     zones = load_zones()
 
     # 로봇 연결
     robot = None
-    use_robot = safe_input(
-        "\n로봇 연결? (y/n, 기본 n): ",
-        default="n",
-        cli_value=("y" if args.robot and args.robot.lower() in ("yes","y","true")
-                   else ("n" if args.robot else None))
-    ).lower()
-
+    use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
     if use_robot == 'y':
         from robot_controller import RobotController
-        ip = safe_input(
-            "로봇 IP (기본 192.168.0.27): ",
-            default="192.168.0.27",
-            cli_value=args.ip
-        )
-        port_str = safe_input(
-            "포트 (기본 5001): ",
-            default="5001",
-            cli_value=args.port
-        )
-        try:
-            port = int(port_str)
-        except ValueError:
-            port = 5001
-            print(f"[WARN] 포트 변환 실패 → 기본값 {port}")
-        robot = RobotController(ip=ip, port=port)
+        ip   = input("로봇 IP (기본 192.168.0.27): ").strip() or "192.168.0.27"
+        port = input("포트 (기본 5001): ").strip() or "5001"
+        robot = RobotController(ip=ip, port=int(port))
         if not robot.connected:
             print("[WARN] 로봇 연결 실패 → 시뮬레이션 모드")
             robot = None
