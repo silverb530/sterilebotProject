@@ -1,68 +1,96 @@
 @echo off
-chcp 65001 >nul 2>&1
 echo ===========================================
-echo   SterileBot 환경 자동 셋업
+echo   SterileBot Environment Setup
 echo ===========================================
 echo.
 
-REM 1. Python 설치 확인
-echo [1/5] Python 설치 확인...
-where python >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Python이 설치되어 있지 않거나 PATH에 없습니다.
-    echo https://www.python.org/downloads/ 에서 Python 3.11 설치 후 다시 실행하세요.
-    echo 설치할 때 "Add Python to PATH" 체크 필수!
-    pause
-    exit /b 1
+REM 1. Find Python 3.11
+echo [1/5] Looking for Python 3.11...
+set PY311=
+
+REM Try py launcher first
+py -3.11 --version >nul 2>&1
+if not errorlevel 1 (
+    set PY311=py -3.11
+    py -3.11 --version
+    goto :py_found
 )
-python --version
-echo.
 
-REM Python 3.11 인지 단순 문자열 검색
+REM Try common install paths
+if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
+    set PY311="%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" --version
+    goto :py_found
+)
+if exist "C:\Python311\python.exe" (
+    set PY311=C:\Python311\python.exe
+    C:\Python311\python.exe --version
+    goto :py_found
+)
+if exist "C:\Program Files\Python311\python.exe" (
+    set PY311="C:\Program Files\Python311\python.exe"
+    "C:\Program Files\Python311\python.exe" --version
+    goto :py_found
+)
+
+REM Fallback: check default python
 python --version 2>&1 | findstr /C:"Python 3.11" >nul
-if errorlevel 1 (
-    echo [WARNING] Python 3.11 이 아닙니다.
-    echo dlib whl 파일이 cp311 전용이라 호환 안 될 수 있습니다.
-    echo 계속하려면 아무 키나 누르세요. 중단하려면 창 닫기.
-    pause
+if not errorlevel 1 (
+    set PY311=python
+    python --version
+    goto :py_found
 )
+
+echo [ERROR] Python 3.11 not found.
+echo.
+echo This project requires Python 3.11 because dlib whl is cp311-specific.
+echo Install Python 3.11 from:
+echo   https://www.python.org/downloads/release/python-3119/
+echo.
+echo You can keep your existing Python ^(3.14 etc^) installed alongside.
+echo Just make sure to check "Add Python to PATH" during installation.
+pause
+exit /b 1
+
+:py_found
+echo Found Python 3.11
 echo.
 
-REM 2. gesture_learning venv
-echo [2/5] gesture_learning 가상환경 생성 + 라이브러리 설치...
+REM 2. gesture_learning venv (using Python 3.11)
+echo [2/5] Setting up gesture_learning venv with Python 3.11...
 cd /d "%~dp0gesture_learning"
 if not exist .venv (
-    python -m venv .venv
+    %PY311% -m venv .venv
 )
 call .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 if errorlevel 1 (
-    echo [ERROR] gesture_learning 라이브러리 설치 실패.
+    echo [ERROR] gesture_learning library install failed.
     call deactivate
     pause
     exit /b 1
 )
 call deactivate
-echo gesture_learning 완료.
+echo gesture_learning done.
 echo.
 
-REM 3. server venv 만들기
-echo [3/5] server 가상환경 생성...
+REM 3. server venv
+echo [3/5] Setting up server venv with Python 3.11...
 cd /d "%~dp0server"
 if not exist .venv (
-    python -m venv .venv
+    %PY311% -m venv .venv
 )
 call .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 echo.
 
-REM 4. dlib 별도 설치
-echo [4/5] dlib 설치 (wheels 폴더에서)...
+REM 4. dlib install
+echo [4/5] Installing dlib from wheels folder...
 set DLIB_WHL=
 for %%f in ("%~dp0wheels\dlib-*.whl") do set DLIB_WHL=%%f
 if "%DLIB_WHL%"=="" (
-    echo [ERROR] wheels 폴더에 dlib whl 파일이 없습니다.
+    echo [ERROR] No dlib whl file in wheels folder.
     call deactivate
     pause
     exit /b 1
@@ -70,34 +98,39 @@ if "%DLIB_WHL%"=="" (
 echo dlib whl: %DLIB_WHL%
 pip install "%DLIB_WHL%"
 if errorlevel 1 (
-    echo [ERROR] dlib 설치 실패. Python 3.11 인지 확인하세요.
+    echo [ERROR] dlib install failed.
     call deactivate
     pause
     exit /b 1
 )
 echo.
 
-REM 5. server 나머지 라이브러리
-echo [5/5] server 나머지 라이브러리 설치...
+REM 5. server libraries
+echo [5/5] Installing server libraries...
 pip install -r requirements.txt
 if errorlevel 1 (
-    echo [ERROR] server 라이브러리 설치 실패.
+    echo [ERROR] server library install failed.
     call deactivate
     pause
     exit /b 1
 )
 call deactivate
-echo server 완료.
+echo server done.
 echo.
 
 echo ===========================================
-echo   셋업 완료!
+echo   Setup Complete!
 echo ===========================================
 echo.
-echo 다음 단계:
-echo   1. camera_finder.py 실행 (gesture_learning 폴더에서)
-echo   2. calib.py --name 영문이름 실행
-echo   3. name_map.json 에 한글이름 → 영문이름 매핑 추가
-echo   4. WPF 빌드 + 실행
+echo Next steps:
+echo   1. Run face calibration ^(once per user^):
+echo      cd gesture_learning
+echo      .venv\Scripts\activate
+echo      python calib.py --name your_english_name
+echo.
+echo   2. Edit name_map.json:
+echo      Add: { "korean_name": "english_name" }
+echo.
+echo   3. Run WPF
 echo.
 pause
