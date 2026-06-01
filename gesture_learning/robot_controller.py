@@ -143,6 +143,14 @@ class RobotController:
         return self._start(f"/pour/{slot.upper()}", f"{slot} 붓기")
 
     # ── 섞기 ──
+    def stir_move(self):
+        """막대기 집기 위치 이동"""
+        return self._start("/stir_move", "섞기 위치 이동")
+
+    def stir_action(self):
+        """실제 섞기 동작 + 막대기 내려놓기"""
+        return self._start("/stir_action", "섞기 실행")
+
     def stir(self):
         """막대기 집기 → 섞기 → 막대기 내려놓기"""
         return self._start("/stir", "섞기")

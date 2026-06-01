@@ -1,0 +1,26 @@
+{
+  "tubes": {
+    "tube_1": {
+      "origin": "bottle_1",
+      "location": "A4"
+    },
+    "tube_2": {
+      "origin": "bottle_2",
+      "location": "bottle_2"
+    },
+    "tube_3": {
+      "origin": "bottle_3",
+      "location": "B4"
+    },
+    "tube_4": {
+      "origin": "bottle_4",
+      "location": "A1"
+    }
+  },
+  "robot": {
+    "gripper": "open",
+    "holding": null,
+    "approach_kind": "drop",
+    "approach_target": "A1"
+  }
+}

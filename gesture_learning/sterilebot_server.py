@@ -418,6 +418,29 @@ class Handler(BaseHTTPRequestHandler):
                              daemon=True).start()
             respond(self, {"ok": True, "action": f"{slot} 붓기"})
 
+        elif p == "/stir_move":
+            if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
+            def _stir_move():
+                if _stir_pick:
+                    replay_trajectory(_stir_pick, "막대기 집기")
+                else:
+                    print("[ERROR] 섞기 집기 데이터 없음")
+            threading.Thread(target=run_async, args=(_stir_move,), daemon=True).start()
+            respond(self, {"ok": True, "action": "섞기 위치 이동"})
+
+        elif p == "/stir_action":
+            if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
+            def _stir_action_only():
+                if _stir_action:
+                    replay_trajectory(_stir_action, "섞기 동작")
+                    if _stir_drop:
+                        replay_trajectory(_stir_drop, "막대기 내려놓기")
+                    go_home()
+                else:
+                    print("[ERROR] 섞기 동작 데이터 없음")
+            threading.Thread(target=run_async, args=(_stir_action_only,), daemon=True).start()
+            respond(self, {"ok": True, "action": "섞기 실행"})
+
         elif p == "/stir":
             if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
             threading.Thread(target=run_async, args=(_run_stir,), daemon=True).start()
