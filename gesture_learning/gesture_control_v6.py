@@ -3,9 +3,7 @@ ChemiBot — MediaPipe 손동작 제어 v6
 특징 추출(거리 기반) + ML 학습 + 실시간 추론
 """
 
-import argparse
 import cv2
-from camera_finder import get_camera_index
 import mediapipe as mp
 import numpy as np
 import math
@@ -46,6 +44,9 @@ def connect_zone_tracker():
 def send_gesture(gesture):
     global zone_sock
     if zone_sock is None:
+        connect_zone_tracker()  # 재연결 시도
+    if zone_sock is None:
+        print(f"[WARN] zone_tracker 미연결 — {gesture} 전송 실패")
         return
     try:
         msg = {"gesture": gesture}
@@ -57,7 +58,9 @@ def send_gesture(gesture):
             msg["action"] = gesture
         data = json.dumps(msg) + "\n"
         zone_sock.sendall(data.encode())
-    except Exception:
+        print(f"[GESTURE] → {gesture}")
+    except Exception as e:
+        print(f"[WARN] zone_tracker 전송 실패: {e}")
         zone_sock = None
 
 mp_hands = mp.solutions.hands
@@ -134,11 +137,12 @@ def get_finger_states_from_features(features):
 # ══════════════════════════════════════════════════════════════════
 #  제스처 정의
 # ══════════════════════════════════════════════════════════════════
-GESTURES = ["GRAB", "POUR", "RELEASE", "SHAKE", "1", "2", "3", "4"]
+GESTURES = ["GRAB", "POUR", "RELEASE", "SHAKE", "1", "2", "3", "4", "STOP"]
 GESTURE_INSTRUCTIONS = {
     "GRAB":"주먹을 쥐세요", "POUR":"엄지만 펴세요",
     "RELEASE":"엄지+검지를 펴세요", "SHAKE":"엄지+새끼를 펴세요",
     "1":"검지 1개만", "2":"검지+중지 2개", "3":"검지+중지+약지 3개", "4":"엄지 빼고 4개",
+    "STOP":"손바닥 전체 펴세요 (5개 모두)",
 }
 LABELS_KR = {
     "GRAB":"잡기","RELEASE":"놓기","POUR":"붓기","SHAKE":"흔들기",
@@ -320,7 +324,12 @@ def run_realtime(model):
                 confidence = proba[pred_idx] * 100
         else:
             no_hand_frames += 1
-            if no_hand_frames > 10: gesture = "STOP"
+            if no_hand_frames > 10:
+                if last_gesture == "STOP":
+                    # 손 치움 → STOP 해제
+                    last_gesture = "UNKNOWN"
+                    print("[INFO] 정지 해제")
+                gesture = "UNKNOWN"  # 손 없으면 항상 UNKNOWN (STOP 루프 방지)
 
         # ── 상태 머신 ──
         if state == "IDLE":
@@ -333,6 +342,7 @@ def run_realtime(model):
                 measure_preds = [(gesture, confidence)]
             elif gesture == "STOP" and last_gesture != "STOP":
                 robot_stop()
+                send_gesture("STOP")  # Zone_tracker에도 정지 전송
                 last_gesture = "STOP"
 
         elif state == "POSITIONED":
@@ -519,72 +529,28 @@ def main():
     print("  ChemiBot v6 — 손동작 제어")
     print("="*50)
 
-    # 명령행 인자 (WPF 자동 실행용). 인자 없으면 기존 콘솔 input.
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--robot", choices=["yes", "no"], default=None)
-    parser.add_argument("--ip",   type=str, default="192.168.0.27")
-    parser.add_argument("--port", type=int, default=5001)
-    parser.add_argument("--home", choices=["yes", "no"], default="no")
-    parser.add_argument("--cam",  type=int, default=None,
-                        help="카메라 인덱스 (지정 안 하면 기본값 사용)")
-    args, _ = parser.parse_known_args()
-
-    # 카메라 인덱스 결정: --cam 인자 > camera_map.json("gesture") > CAMERA_ID
-    global CAMERA_ID
-    if args.cam is not None:
-        CAMERA_ID = args.cam
-        print(f"[INFO] 사용 카메라 인덱스: {CAMERA_ID} (--cam 인자)", flush=True)
-    else:
-        CAMERA_ID = get_camera_index("gesture", fallback=CAMERA_ID)
-
-    if args.robot is None:
-        # 수동 실행 (콘솔 input)
-        use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
-        if use_robot == 'y':
-            from robot_controller import RobotController
-            ip   = input("로봇 IP (기본 192.168.0.27): ").strip() or "192.168.0.27"
-            port = input("포트 (기본 5001): ").strip() or "5001"
-            robot = RobotController(ip=ip, port=int(port))
-            if robot.connected:
-                if input("홈 위치로 이동? (y/n): ").strip().lower() == 'y':
-                    robot.go_home()
-        else:
-            robot = None
-            print("[INFO] 시뮬레이션 모드")
-    elif args.robot == "yes":
+    use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
+    if use_robot == 'y':
         from robot_controller import RobotController
-        robot = RobotController(ip=args.ip, port=args.port)
-        if robot.connected and args.home == "yes":
-            robot.go_home()
-        if not robot.connected:
-            robot = None
+        ip   = input("로봇 IP (기본 192.168.0.30): ").strip() or "192.168.0.30"
+        port = input("포트 (기본 5001): ").strip() or "5001"
+        robot = RobotController(ip=ip, port=int(port))
+        if robot.connected:
+            if input("홈 위치로 이동? (y/n): ").strip().lower() == 'y':
+                robot.go_home()
     else:
         robot = None
-        print("[INFO] 시뮬레이션 모드 (--robot no)")
+        print("[INFO] 시뮬레이션 모드")
 
     # zone_tracker 연결
     connect_zone_tracker()
 
-    # WPF 자동 실행 시 cv2 창을 화면 밖으로
-    if args.robot is not None:
-        for win_name in ["ChemiBot - Gesture Control v6", "ChemiBot v6 - Data Collection"]:
-            cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-            cv2.moveWindow(win_name, -2000, -2000)
-            cv2.resizeWindow(win_name, 1, 1)
-
-    # 모델: WPF 자동 실행 시 항상 기존 모델 사용 (학습 input 회피)
     model = None
     if os.path.exists(MODEL_PATH):
-        if args.robot is None:
-            # 수동: 물어봄
-            print(f"\n[모델] 기존 파일: {MODEL_PATH}")
-            if input("기존 모델 사용? (y/n): ").strip().lower() == 'y':
-                with open(MODEL_PATH, "rb") as f: model = pickle.load(f)
-                print(f"[INFO] 로드 완료: {list(model.classes_)}")
-        else:
-            # 자동: 기존 모델 무조건 로드
+        print(f"\n[모델] 기존 파일: {MODEL_PATH}")
+        if input("기존 모델 사용? (y/n): ").strip().lower() == 'y':
             with open(MODEL_PATH, "rb") as f: model = pickle.load(f)
-            print(f"[INFO] 모델 자동 로드: {list(model.classes_)}")
+            print(f"[INFO] 로드 완료: {list(model.classes_)}")
 
     if model is None:
         print(f"\n[학습] {len(GESTURES)}개 x {SAMPLES_PER_GESTURE}개 수집")
