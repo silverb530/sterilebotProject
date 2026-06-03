@@ -11,6 +11,9 @@ from flask_cors import CORS
 from datetime import datetime
 import json, time, random, threading, os, io, pickle
 
+from db import get_db 
+from routes.emergency import emergency_bp
+
 import face_recognition
 import cv2
 import mysql.connector
@@ -18,19 +21,21 @@ import numpy as np
 
 app = Flask(__name__)
 CORS(app)
+app.register_blueprint(emergency_bp)
 # ══════════════════════════════════════════════════════════════════
 #  0. MySQL 연결
+#  2026.06.02 강은비 - DB 따로 파일 빼놓음!!! db.py
 # ══════════════════════════════════════════════════════════════════
-DB_CONFIG = {
-    "host":     "192.168.0.16",
-    "user":     "chemibot",
-    "password": "1111",
-    "database": "sterilebot",
-    "charset":  "utf8mb4",
-}
+# DB_CONFIG = {
+#     "host":     "192.168.0.16",
+#     "user":     "chemibot",
+#     "password": "1111",
+#     "database": "sterilebot",
+#     "charset":  "utf8mb4",
+# }
 
-def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
+# def get_db():
+#     return mysql.connector.connect(**DB_CONFIG)
 # ══════════════════════════════════════════════════════════════════
 #  1. 실시간 상태 (WPF 모니터링용)
 # ══════════════════════════════════════════════════════════════════
@@ -258,13 +263,14 @@ def face_login():
     """
     global _face_fail_count
     img_bytes = request.data
+    print(f"[DEBUG] 받은 바이트 수: {len(img_bytes)}")
     if not img_bytes:
         return jsonify({"ok": False, "reason": "이미지 데이터 없음"}), 400
 
     # 얼굴 벡터 추출 (전처리 + 정밀 인코딩)
     try:
         img = face_recognition.load_image_file(io.BytesIO(img_bytes))
-
+        print(f"[DEBUG] img shape={img.shape}, dtype={img.dtype}")
         # 이미지 전처리: 밝기/대비 자동 보정 (CLAHE)
         img_bgr = cv2.imdecode(
             np.frombuffer(img_bytes, dtype=np.uint8), cv2.IMREAD_COLOR
@@ -291,9 +297,11 @@ def face_login():
             img, known_face_locations=face_locations, num_jitters=1
         )
     except Exception as e:
+        print(f"[DEBUG] 예외 발생: {type(e).__name__}: {str(e)}")
         return jsonify({"ok": False, "reason": f"이미지 처리 실패: {str(e)}"}), 400
 
     if not encodings:
+        print(f"[DEBUG] 인코딩 실패 - face_locations: {len(face_locations)}")
         return jsonify({"ok": False, "reason": "얼굴 없음", "retry": True})
 
     target = encodings[0]
@@ -524,4 +532,4 @@ if __name__ == "__main__":
     print("  얼굴 등록:    POST /api/researchers/{id}/face")
     print("  얼굴 로그인:  POST /api/face/login")
     print("=" * 50)
-    app.run(host="0.0.0.0", port=5000, threaded=True)
+    app.run(debug=True, host="0.0.0.0", port=5000, threaded=True)

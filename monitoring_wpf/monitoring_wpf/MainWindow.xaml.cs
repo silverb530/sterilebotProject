@@ -1,10 +1,12 @@
+using monitoring_wpf.service;
+using monitoring_wpf.Services;
+using monitoring_wpf.Views;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http;
 using System.Text.Json;
 using System.Windows;
-using monitoring_wpf.Services;
-using monitoring_wpf.Views;
 
 namespace monitoring_wpf
 {
@@ -13,9 +15,15 @@ namespace monitoring_wpf
         private readonly FlaskClient _flask = new("http://localhost:5000");
         private readonly PythonProcessManager _procMgr = new();
 
+        // 비상상황 이벤트 리스너
+        private readonly EmergencyListenerService _emergencyService = new();
+        // 환기 이벤트
+        private monitoring_wpf.Views.VentingWindow? _ventWindow;
+
         // 인증된 연구원 정보 (한글 이름)
         public static string AuthName { get; set; } = "";
         public static string AuthRole { get; set; } = "";
+        public static int AuthId { get; set; } = 0;
 
         // 영문 캘리브 파일명 (name_map.json 으로 변환된 결과)
         public static string CalibName { get; set; } = "";
@@ -33,16 +41,57 @@ namespace monitoring_wpf
             ViewMain.OnDriveTest = () => Navigate("drivetest");
             ViewMain.OnStart = StartExperiment;
             ViewMain.OnExit = () => Application.Current.Shutdown();
-            ViewDriveTest.OnBack = () => Navigate("main");
-            ViewRunning.OnEmergencyStop = () => ViewRunning.SetEmergency(true);
-            ViewRunning.OnResume = () => ViewRunning.SetEmergency(false);
             ViewRunning.OnExit = () =>
             {
+                // 이미 환기 중이면 무시 (중복 클릭 방지)
+                if (_ventWindow != null) return;
+
+                // Pi에 환기 시작 명령
+                _ = EmergencyListenerService.SendToPiAsync("VENT_START");
+
+                // 환기 알림창 (모달) — VENT_DONE 또는 강제종료 시 닫힘
+                _ventWindow = new monitoring_wpf.Views.VentingWindow { Owner = this };
+                _ventWindow.ShowDialog();   // 창 닫힐 때까지 여기서 대기 (모달)
+
+                // 창이 닫혔으면 → 실험 종료 진행
+                _ventWindow = null;
                 // 실험 종료: Zone_tracker, gesture_control 만 종료.
                 // Learning_TWM(시선 트래킹) 은 계속 작동하므로 커서도 그대로.
                 _procMgr.StopExperiment();
                 Navigate("main");
             };
+
+            ViewDriveTest.OnBack = () => Navigate("main");
+            ViewRunning.OnEmergencyStop = () =>
+            {
+                ViewRunning.SetEmergency(true);
+                _ = EmergencyListenerService.SendToPiAsync("EMERGENCY");
+                _ = _emergencyService.HisLoadStartAsync("WPF_BUTTON", MainWindow.AuthId);
+            };
+            ViewRunning.OnResume = () =>
+            {
+                ViewRunning.SetEmergency(false);
+                _ = EmergencyListenerService.SendToPiAsync("EMERGENCY_END"); // Pi 부저/LCD도 끔
+                _ = _emergencyService.HisLoadEndAsync("WPF_RESET");
+            };
+
+            _emergencyService.EmergencyStateChanged += isEmergency =>
+            {
+                Dispatcher.Invoke(() => ViewRunning.SetEmergency(isEmergency));
+                if (isEmergency)  // Pi가 발생시킨 비상 → researcher_id 업데이트
+                    _ = _emergencyService.UpdateResearcherAsync(MainWindow.AuthId);
+            };
+            // 환기 완료 신호 받으면 알림창 닫기 → OnExit의 ShowDialog가 반환됨
+            _emergencyService.VentDone += () =>
+            {
+                Dispatcher.Invoke(() => _ventWindow?.Close());
+            };
+            // 환기 중 가스값 받으면 알림창에 표시
+            _emergencyService.VentGasUpdate += gas =>
+            {
+                Dispatcher.Invoke(() => _ventWindow?.UpdateGas(gas));
+            };
+            _emergencyService.Start();
 
             Navigate("faceauth");
         }
@@ -134,6 +183,7 @@ namespace monitoring_wpf
 
         protected override void OnClosed(EventArgs e)
         {
+            _emergencyService.Dispose();
             _procMgr.StopAll();
             CursorRestorer.RestoreSystemCursors();
             _flask.StopPolling();

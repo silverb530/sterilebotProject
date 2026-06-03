@@ -179,73 +179,121 @@
                 </Border>
 
                 <!-- ── 비상 화면 (기본 숨김) ── -->
-                <Border x:Name="EmergencyPanel" Visibility="Collapsed"
-                        CornerRadius="10" Background="#FFF1F2">
+                <!-- ── 비상 화면 (기본 숨김) ── -->
+                <Border x:Name="EmergencyPanel" Visibility="Collapsed" CornerRadius="12">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                            <GradientStop Color="#1C0A00" Offset="0"/>
+                            <GradientStop Color="#0A0A0A" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
                     <Border.Effect>
-                        <DropShadowEffect Color="#DC2626" BlurRadius="28" ShadowDepth="0" Opacity="0.20"/>
+                        <DropShadowEffect Color="#EF4444" BlurRadius="60" ShadowDepth="0" Opacity="0.5"/>
                     </Border.Effect>
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Grid>
+                        <!-- 상단 빨간 강조선 -->
+                        <Border Height="5" VerticalAlignment="Top" CornerRadius="12,12,0,0">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#7F1D1D" Offset="0"/>
+                                    <GradientStop Color="#EF4444" Offset="0.5"/>
+                                    <GradientStop Color="#7F1D1D" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
 
-                        <!-- ★ 깔끔한 경고 삼각형 아이콘 ★ -->
-                        <Viewbox Width="130" Height="116" HorizontalAlignment="Center"
-                                 Margin="0,0,0,28">
-                            <Canvas Width="200" Height="178">
-                                <!-- 삼각형 그림자 (살짝 아래/뒤) -->
-                                <Polygon Points="100,6 196,170 4,170"
-                                         Fill="#B91C1C" Opacity="0.25">
-                                    <Polygon.RenderTransform>
-                                        <TranslateTransform Y="4"/>
-                                    </Polygon.RenderTransform>
-                                </Polygon>
-                                <!-- 삼각형 본체 (그라디언트) -->
-                                <Polygon Points="100,6 196,170 4,170">
-                                    <Polygon.Fill>
-                                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                                            <GradientStop Color="#F87171" Offset="0"/>
-                                            <GradientStop Color="#DC2626" Offset="1"/>
-                                        </LinearGradientBrush>
-                                    </Polygon.Fill>
-                                </Polygon>
-                                <!-- 삼각형 테두리 -->
-                                <Polygon Points="100,6 196,170 4,170"
-                                         Fill="Transparent"
-                                         Stroke="#FECACA" StrokeThickness="3"
-                                         StrokeLineJoin="Round"/>
-                                <!-- 느낌표 세로 막대 -->
-                                <Rectangle Canvas.Left="93" Canvas.Top="82"
-                                           Width="14" Height="62"
-                                           Fill="White" RadiusX="7" RadiusY="7"/>
-                                <!-- 느낌표 점 -->
-                                <Ellipse Canvas.Left="93" Canvas.Top="156"
-                                         Width="14" Height="14" Fill="White"/>
-                            </Canvas>
-                        </Viewbox>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="40">
 
-                        <TextBlock Text="비 상 상 황"
-                                   FontFamily="Segoe UI" FontSize="32" FontWeight="Bold"
-                                   Foreground="#7F1D1D" HorizontalAlignment="Center"/>
-                        <TextBlock Text="시스템이 긴급 정지되었습니다"
-                                   FontFamily="Segoe UI" FontSize="15"
-                                   Foreground="#DC2626" HorizontalAlignment="Center"
-                                   Margin="0,10,0,36"/>
-                        <Button Content="상태 초기화"
-                                FontFamily="Segoe UI" FontSize="15" FontWeight="SemiBold"
-                                Foreground="White" Width="180" Height="48"
-                                Cursor="Hand" Click="ResetState_Click">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bd" CornerRadius="8" Background="#2563EB">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="bd" Property="Background" Value="#1D4ED8"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </StackPanel>
+                            <!-- 아이콘 원 (펄스 애니메이션) -->
+                            <Border x:Name="PulseRing" Width="110" Height="110" CornerRadius="55"
+                    HorizontalAlignment="Center" Margin="0,0,0,28">
+                                <Border.Background>
+                                    <RadialGradientBrush>
+                                        <GradientStop Color="#450A0A" Offset="0"/>
+                                        <GradientStop Color="#1A0404" Offset="1"/>
+                                    </RadialGradientBrush>
+                                </Border.Background>
+                                <Border.Effect>
+                                    <DropShadowEffect x:Name="PulseGlow" Color="#EF4444"
+                                      BlurRadius="20" ShadowDepth="0" Opacity="0.7"/>
+                                </Border.Effect>
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                <DoubleAnimation
+                                    Storyboard.TargetName="PulseGlow"
+                                    Storyboard.TargetProperty="BlurRadius"
+                                    From="15" To="55" Duration="0:0:0.9"/>
+                                                <DoubleAnimation
+                                    Storyboard.TargetName="PulseGlow"
+                                    Storyboard.TargetProperty="Opacity"
+                                    From="0.4" To="1.0" Duration="0:0:0.9"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                                <TextBlock Text="⚠" FontSize="52"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="#EF4444"
+                                       Margin="0,-8,0,0"/>
+                            </Border>
+
+                            <!-- 텍스트 -->
+                            <TextBlock Text="EMERGENCY STOP"
+                       FontFamily="Segoe UI" FontSize="11" FontWeight="Bold"
+                       Foreground="#7F1D1D" HorizontalAlignment="Center"
+                       Margin="0,0,0,6"/>
+                            <TextBlock Text="비 상 상 황"
+                       FontFamily="Segoe UI" FontSize="38" FontWeight="Bold"
+                       Foreground="#EF4444" HorizontalAlignment="Center"/>
+                            <TextBlock Text="시스템이 긴급 정지되었습니다"
+                       FontFamily="Segoe UI" FontSize="14"
+                       Foreground="#FCA5A5" HorizontalAlignment="Center"
+                       Margin="0,10,0,0"/>
+
+                            <!-- 구분선 -->
+                            <Border Height="1" Margin="0,30,0,30">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="Transparent" Offset="0"/>
+                                        <GradientStop Color="#7F1D1D" Offset="0.5"/>
+                                        <GradientStop Color="Transparent" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+
+                            <!-- 버튼 -->
+                            <Button Content="상태 초기화"
+                    FontFamily="Segoe UI" FontSize="14" FontWeight="SemiBold"
+                    Foreground="White" Width="200" Height="50"
+                    Cursor="Hand" Click="ResetState_Click">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="10">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                    <GradientStop Color="#B91C1C" Offset="0"/>
+                                                    <GradientStop Color="#DC2626" Offset="1"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="#EF4444" BlurRadius="12"
+                                                  ShadowDepth="0" Opacity="0.6"/>
+                                            </Border.Effect>
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Opacity" Value="0.8"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
                 </Border>
             </Grid>
             <Border Grid.Column="2" Background="White" CornerRadius="10"

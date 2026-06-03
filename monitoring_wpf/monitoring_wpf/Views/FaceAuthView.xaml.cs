@@ -123,7 +123,7 @@ namespace monitoring_wpf.Views
                 await Dispatcher.InvokeAsync(() =>
                 {
                     if (result?.Ok == true)
-                        ShowAuthComplete(result.Name, result.Role, result.Confidence);
+                        ShowAuthComplete(result.Id, result.Name, result.Role, result.Confidence);
                     else if (result?.Retry == true)
                         AuthLine1.Text = string.IsNullOrEmpty(result.Reason)
                             ? "얼굴 인식 중..."
@@ -164,13 +164,14 @@ namespace monitoring_wpf.Views
         }
 
         // 인증 성공
-        private void ShowAuthComplete(string name, string role, double confidence)
+        private void ShowAuthComplete(int id , string name, string role, double confidence)
         {
             if (AuthBadge.Visibility == Visibility.Visible) return;
 
             // 인증된 연구원 이름 저장
             MainWindow.AuthName = name;
             MainWindow.AuthRole = role;
+            MainWindow.AuthId = id;
 
             ConfidencePanel.Visibility = Visibility.Visible;
             ConfidenceStatus.Text = "인증 성공!";
@@ -202,6 +203,8 @@ namespace monitoring_wpf.Views
             public bool Ok { get; set; }
             [System.Text.Json.Serialization.JsonPropertyName("name")]
             public string Name { get; set; } = "";
+            [System.Text.Json.Serialization.JsonPropertyName("id")]
+            public int Id { get; set; }
             [System.Text.Json.Serialization.JsonPropertyName("role")]
             public string Role { get; set; } = "";
             [System.Text.Json.Serialization.JsonPropertyName("confidence")]
