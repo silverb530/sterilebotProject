@@ -19,7 +19,6 @@
 # =============================================================
 
 import cv2
-from camera_finder import get_camera_index
 import numpy as np
 import mediapipe as mp
 import sys
@@ -58,48 +57,25 @@ import json
 ZONE_TRACKER_PORT = 9002
 zone_sock = None
 
-_last_connect_try = 0.0
-_RECONNECT_INTERVAL = 2.0   # 연결 실패 시 2초마다 재시도
-
-def connect_zone_tracker(verbose=True):
+def connect_zone_tracker():
     global zone_sock
     try:
         zone_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        zone_sock.settimeout(0.5)
         zone_sock.connect(("127.0.0.1", ZONE_TRACKER_PORT))
-        zone_sock.settimeout(None)
-        if verbose:
-            print(f"[INFO] zone_tracker 연결됨", flush=True)
-        return True
+        print(f"[INFO] zone_tracker 연결됨")
     except:
         zone_sock = None
-        if verbose:
-            print(f"[WARN] zone_tracker 연결 실패 (재시도 대기)", flush=True)
-        return False
+        print(f"[WARN] zone_tracker 연결 실패")
 
 def send_cursor(x, y):
-    """zone_tracker 가 켜지면 자동으로 재연결되어 커서 좌표 송신.
-    Zone_tracker 가 나중에 시작돼도(실험 시작 시) 자동 연결됨.
-    """
-    global zone_sock, _last_connect_try
-    import time as _t
-
-    # 연결 안 됐으면 주기적 재시도
+    global zone_sock
     if zone_sock is None:
-        now = _t.time()
-        if now - _last_connect_try > _RECONNECT_INTERVAL:
-            _last_connect_try = now
-            connect_zone_tracker(verbose=False)
-        if zone_sock is None:
-            return
-
-    # 좌표 송신
+        return
     try:
         msg = json.dumps({"type": "CURSOR", "x": int(x), "y": int(y)}) + "\n"
         zone_sock.sendall(msg.encode())
     except:
         zone_sock = None
-        # 다음 send_cursor 호출 시 재연결 시도
 
 # ────────────────────────────────────────────────
 #  카메라 캡처 스레드
@@ -141,8 +117,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", type=str, default="default",
                         help="사용자 이름 (캘리브레이션 파일명)")
-    parser.add_argument("--cam", type=int, default=None,
-                        help="카메라 인덱스 (지정 안 하면 기본값 사용)")
     args = parser.parse_args()
 
     save_path = os.path.join(SAVE_DIR, f"{args.name}.npy")
@@ -182,14 +156,7 @@ def main():
     connect_zone_tracker()
 
     # 카메라 스레드 시작
-    # --cam 인자가 있으면 그 번호, 없으면 코드 상단의 CAMERA_INDEX 사용
-    # 카메라 인덱스 결정 우선순위: --cam 인자 > camera_map.json("face") > CAMERA_INDEX 기본값
-    if args.cam is not None:
-        cam_idx = args.cam
-        print(f"[INFO] 사용 카메라 인덱스: {cam_idx} (--cam 인자)", flush=True)
-    else:
-        cam_idx = get_camera_index("face", fallback=CAMERA_INDEX)
-    cam = CameraThread(cam_idx, 640, 480)
+    cam = CameraThread(CAMERA_INDEX, 640, 480)
     frame_w, frame_h = cam.get_size()
     print(f"[INFO] 웹캠: {frame_w}x{frame_h}")
     print("[INFO] 트래킹 시작! (종료: Ctrl+C 또는 q키)")
@@ -212,6 +179,30 @@ def main():
     # 터미널 창 핸들 미리 가져오기
     console_hwnd = ctypes.windll.kernel32.GetConsoleWindow()
 
+    # Zone Tracker 창 핸들 찾기
+    zone_tracker_hwnd = None
+    def find_zone_tracker():
+        nonlocal zone_tracker_hwnd
+        import ctypes
+        EnumWindows = ctypes.windll.user32.EnumWindows
+        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
+        GetWindowText = ctypes.windll.user32.GetWindowTextW
+        GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
+        IsWindowVisible = ctypes.windll.user32.IsWindowVisible
+        found = []
+        def callback(hwnd, lparam):
+            if IsWindowVisible(hwnd):
+                length = GetWindowTextLength(hwnd)
+                if length > 0:
+                    buf = ctypes.create_unicode_buffer(length + 1)
+                    GetWindowText(hwnd, buf, length + 1)
+                    if "Zone Tracker" in buf.value:
+                        found.append(hwnd)
+            return True
+        EnumWindows(EnumWindowsProc(callback), 0)
+        if found:
+            zone_tracker_hwnd = found[0]
+
     mp_face_mesh = mp.solutions.face_mesh
 
     try:
@@ -232,10 +223,12 @@ def main():
                 frame = cv2.flip(frame, 1)
                 now   = time.time()
 
-                # 주기적으로 터미널 창을 포그라운드로 올려서
-                # mouse_event 차단 방지
+                # 주기적으로 Zone Tracker 창을 포그라운드로 유지
                 if now - last_fg_time > FOREGROUND_INTERVAL:
-                    ctypes.windll.user32.SetForegroundWindow(console_hwnd)
+                    if zone_tracker_hwnd is None:
+                        find_zone_tracker()
+                    if zone_tracker_hwnd:
+                        ctypes.windll.user32.SetForegroundWindow(zone_tracker_hwnd)
                     last_fg_time = now
 
                 # N프레임마다 MediaPipe 처리
@@ -287,10 +280,14 @@ def main():
                             dwell_elapsed = now - dwell_start_t
                             if dwell_elapsed >= DWELL_TIME and \
                                now - dwell_last_t > DWELL_COOLDOWN:
-                                mouse_click()
-                                dwell_last_t  = now
-                                dwell_start_x = None
-                                print(f"[DWELL] Click ({int(cur_x)},{int(cur_y)})")
+                                # 화면 상단 50px는 제목표시줄/작업표시줄 — 클릭 차단
+                                if cur_y < 50:
+                                    dwell_start_x = None
+                                else:
+                                    mouse_click()
+                                    dwell_last_t  = now
+                                    dwell_start_x = None
+                                    print(f"[DWELL] Click ({int(cur_x)},{int(cur_y)})")
                 else:
                     dwell_start_x = None
 

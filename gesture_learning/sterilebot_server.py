@@ -47,12 +47,14 @@ print(f"[로드] 꽂기: {list(_drops.keys())}")
 print(f"[로드] 붓기 슬롯: {list(_lifts.keys())}")
 
 _busy = False
+_stop_flag = False  # 긴급 정지 플래그
 _grip_state = {"tube_num": None, "remaining_traj": []}
 _drop_state = {"slot": None, "remaining_traj": []}  # 꽂기 위치 도달 후 대기
 
 def run_async(fn, *args):
-    global _busy
+    global _busy, _stop_flag
     _busy = True
+    _stop_flag = False  # 새 동작 시작 시 정지 플래그 해제
     try:    fn(*args)
     except Exception as e: print(f"[ERROR] {e}")
     finally: _busy = False
@@ -83,6 +85,7 @@ def _pickup_move(tube_num):
 
     last_t = 0; remaining = []
     for pt in traj:
+        if _stop_flag: break
         cur_t = pt["t"]
         if grip_t and cur_t >= grip_t - 0.2:
             remaining.append(pt)
@@ -108,6 +111,7 @@ def _pickup_grip():
         print(f"[서버] 복귀 경로 재생 ({len(remaining)}프레임)")
         last_t = remaining[0]["t"]
         for pt in remaining:
+            if _stop_flag: break
             cur_t = pt["t"]
             wait  = max(0.08, (cur_t - last_t) * TIME_SCALE)
             last_t = cur_t
@@ -139,6 +143,7 @@ def _drop_move(slot):
 
     last_t = 0; remaining = []
     for pt in traj:
+        if _stop_flag: break
         cur_t = pt["t"]
         if open_t and cur_t >= open_t - 0.2:
             remaining.append(pt)
@@ -159,6 +164,7 @@ def _drop_release():
     if remaining:
         last_t = remaining[0]["t"]
         for pt in remaining:
+            if _stop_flag: break
             cur_t = pt["t"]
             wait  = max(0.08, (cur_t - last_t) * TIME_SCALE)
             last_t = cur_t
@@ -181,6 +187,7 @@ def _beaker_move():
     global _pour_remaining
     _pour_remaining = []
     for pt in traj:
+        if _stop_flag: break
         cur_t = pt["t"]
         if cur_t >= SPLIT_T:
             _pour_remaining.append(pt)
@@ -197,6 +204,7 @@ def _beaker_pour():
         print("[ERROR] 비커 이동 먼저 필요"); return
     last_t = _pour_remaining[0]["t"]
     for pt in _pour_remaining:
+        if _stop_flag: break
         wait = max(0.08, (pt["t"] - last_t) * TIME_SCALE)
         last_t = pt["t"]
         send_safe(pt["angles"]); time.sleep(wait)
@@ -219,6 +227,7 @@ def _pickup_lift_move(slot):
     send_safe(traj[0]["angles"], 15); time.sleep(4.0)
     last_t = 0; remaining = []
     for pt in traj:
+        if _stop_flag: break
         cur_t = pt["t"]
         if grip_t and cur_t >= grip_t - 0.2:
             remaining.append(pt); continue
@@ -242,6 +251,7 @@ def _side_drop_move(slot):
     send_safe(traj[0]["angles"], 15); time.sleep(4.0)
     last_t = 0; remaining = []
     for pt in traj:
+        if _stop_flag: break
         cur_t = pt["t"]
         if open_t and cur_t >= open_t - 0.2:
             remaining.append(pt); continue
@@ -258,6 +268,7 @@ def _side_drop_release():
     if remaining:
         last_t = remaining[0]["t"]
         for pt in remaining:
+            if _stop_flag: break
             wait = max(0.08, (pt["t"] - last_t) * TIME_SCALE)
             last_t = pt["t"]
             send_safe(pt["angles"]); time.sleep(wait)
@@ -274,6 +285,146 @@ def _run_stir():
     replay_trajectory(_stir_drop,   "막대기 내려놓기")
     go_home()
     print("[서버] 섞기 완료")
+
+# ── 단계별 섞기 ──
+_stir_grip_state   = {"remaining_traj": [], "grip_value": GRIP_VALUE}
+_stir_drop_state   = {"remaining_traj": []}
+_stir_beaker_state = {"remaining_traj": []}  # beaker_move 후 섞기 remaining 전용
+
+def _stir_move():
+    """막대 앞까지 이동 (grip 이벤트 직전 대기) — GRAB 대기"""
+    if not _stir_pick:
+        print("[ERROR] stir_pickup.json 없음"); return
+    raw    = _stir_pick["trajectory"]
+    evts   = _stir_pick.get("events", [])
+    g_val  = _stir_pick.get("grip_value", GRIP_VALUE)
+    traj   = downsample(raw, REPLAY_SAMP)
+    grip_t = next((ev["t"] for ev in evts if ev["action"] == "close"), None)
+
+    mc.stop(); time.sleep(WAIT_STOP)
+    gripper_open()
+
+    first = traj[0]["angles"]
+    mc.send_angle(6, first[5], 15); time.sleep(2.5)
+    send_safe(first, 15);           time.sleep(4.0)
+
+    last_t = 0; remaining = []
+    for pt in traj:
+        if _stop_flag: break
+        cur_t = pt["t"]
+        if grip_t and cur_t >= grip_t - 0.2:
+            remaining.append(pt); continue
+        wait = max(0.08, (cur_t - last_t) * TIME_SCALE)
+        last_t = cur_t
+        send_safe(pt["angles"]); time.sleep(wait)
+
+    _stir_grip_state["remaining_traj"] = remaining
+    _stir_grip_state["grip_value"]     = g_val
+    print(f"[서버] 막대 위치 도달 — GRAB 대기 (잔여 {len(remaining)}프레임)")
+
+def _stir_grip():
+    """GRAB 시: 막대 잡기 + 홈 복귀"""
+    g_val     = _stir_grip_state.get("grip_value", GRIP_VALUE)
+    remaining = _stir_grip_state["remaining_traj"]
+
+    mc.set_gripper_value(g_val, SPEED_GRIP); time.sleep(WAIT_GRIP)
+
+    if remaining:
+        last_t = remaining[0]["t"]
+        for pt in remaining:
+            if _stop_flag: break
+            wait = max(0.08, (pt["t"] - last_t) * TIME_SCALE)
+            last_t = pt["t"]
+            send_safe(pt["angles"]); time.sleep(wait)
+    else:
+        go_home()
+
+    _stir_grip_state["remaining_traj"] = []
+    print("[서버] 막대 잡기 + 홈 복귀 완료")
+
+def _stir_beaker_move():
+    """Beaker Dwell 시: 비커 위치까지만 이동 — SHAKE 대기"""
+    if not _stir_action:
+        print("[ERROR] stir_action.json 없음"); return
+    raw  = _stir_action["trajectory"] if isinstance(_stir_action, dict) and "trajectory" in _stir_action else _stir_action
+    SPLIT_T = 5.4  # 비커 위 도달 후 멈추는 지점
+
+    # downsample 전에 분리 (downsample 후 t값이 바뀔 수 있음)
+    before    = [pt for pt in raw if pt["t"] < SPLIT_T]
+    remaining = [pt for pt in raw if pt["t"] >= SPLIT_T]
+
+    before_ds    = downsample(before,    REPLAY_SAMP)
+    remaining_ds = downsample(remaining, REPLAY_SAMP)
+
+    if not before_ds:
+        print("[ERROR] 이동 구간 없음"); return
+
+    send_safe(before_ds[0]["angles"], 15); time.sleep(4.0)
+    last_t = 0
+    for pt in before_ds:
+        if _stop_flag: break
+        wait = max(0.08, (pt["t"] - last_t) * TIME_SCALE)
+        last_t = pt["t"]
+        send_safe(pt["angles"]); time.sleep(wait)
+
+    if _stop_flag:
+        print("[서버] 긴급 정지 — 비커 이동 중단")
+        return
+    _stir_beaker_state["remaining_traj"] = remaining_ds
+    print(f"[서버] 비커 위 도달 — SHAKE 대기 (잔여 {len(remaining_ds)}프레임)")
+
+def _stir_do():
+    """SHAKE 제스처 시: 섞기 동작 재생 + 홈 복귀 (수평 자세)"""
+    remaining = _stir_beaker_state.get("remaining_traj", [])
+    if remaining:
+        last_t = remaining[0]["t"]
+        for pt in remaining:
+            if _stop_flag: break
+            wait = max(0.08, (pt["t"] - last_t) * TIME_SCALE)
+            last_t = pt["t"]
+            send_safe(pt["angles"]); time.sleep(wait)
+    go_home_lift()  # 수평 자세 유지 홈 복귀
+    _stir_beaker_state["remaining_traj"] = []
+    print("[서버] 섞기 완료 + 홈 복귀")
+
+def _stir_drop_move():
+    """막대 잡은 채로 원위치(stir_drop) 앞까지 이동 — RELEASE 대기"""
+    if not _stir_drop:
+        print("[ERROR] stir_drop.json 없음"); return
+    raw    = _stir_drop["trajectory"] if isinstance(_stir_drop, dict) and "trajectory" in _stir_drop else _stir_drop
+    evts   = _stir_drop.get("events", []) if isinstance(_stir_drop, dict) else []
+    traj   = downsample(raw, REPLAY_SAMP)
+    open_t = next((ev["t"] for ev in evts if ev["action"] == "open"), None)
+
+    send_safe(traj[0]["angles"], 15); time.sleep(4.0)
+
+    last_t = 0; remaining = []
+    for pt in traj:
+        if _stop_flag: break
+        cur_t = pt["t"]
+        if open_t and cur_t >= open_t - 0.2:
+            remaining.append(pt); continue
+        wait = max(0.08, (cur_t - last_t) * TIME_SCALE)
+        last_t = cur_t
+        send_safe(pt["angles"]); time.sleep(wait)
+
+    _stir_drop_state["remaining_traj"] = remaining
+    print(f"[서버] 막대 원위치 도달 — RELEASE 대기 (잔여 {len(remaining)}프레임)")
+
+def _stir_drop_release():
+    """RELEASE 시: 막대 놓기 + 홈 복귀"""
+    gripper_open(); time.sleep(0.5)
+    remaining = _stir_drop_state["remaining_traj"]
+    if remaining:
+        last_t = remaining[0]["t"]
+        for pt in remaining:
+            if _stop_flag: break
+            wait = max(0.08, (pt["t"] - last_t) * TIME_SCALE)
+            last_t = pt["t"]
+            send_safe(pt["angles"]); time.sleep(wait)
+    go_home()
+    _stir_drop_state["remaining_traj"] = []
+    print("[서버] 막대 내려놓기 + 홈 복귀 완료")
 
 # ── HTTP 응답 헬퍼 ──
 def respond(h, data, code=200):
@@ -305,6 +456,17 @@ class Handler(BaseHTTPRequestHandler):
             if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
             threading.Thread(target=run_async, args=(go_home,), daemon=True).start()
             respond(self, {"ok": True, "action": "홈"})
+
+        elif p == "/stop":
+            # 즉시 정지 — busy 체크 없이 강제 실행
+            def _do_stop():
+                global _busy, _stop_flag
+                _stop_flag = True  # 모든 궤적 재생 루프 중단
+                mc.stop()
+                _busy = False
+                print("[서버] 긴급 정지 실행")
+            _do_stop()
+            respond(self, {"ok": True, "action": "정지"})
 
         elif p.startswith("/pickup_lift_move/"):
             slot = p.split("/")[-1].upper()
@@ -423,6 +585,54 @@ class Handler(BaseHTTPRequestHandler):
             threading.Thread(target=run_async, args=(_run_stir,), daemon=True).start()
             respond(self, {"ok": True, "action": "섞기"})
 
+        elif p == "/stir_move":
+            if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
+            def _stir_move_and_release():
+                global _stop_flag, _busy
+                _busy = True
+                _stop_flag = False
+                _stir_move()
+                _busy = False  # 막대 위치 도달 후 GRAB 대기 — busy 해제
+            threading.Thread(target=_stir_move_and_release, daemon=True).start()
+            respond(self, {"ok": True, "action": "막대 이동"})
+
+        elif p == "/stir_grip":
+            if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
+            threading.Thread(target=run_async, args=(_stir_grip,), daemon=True).start()
+            respond(self, {"ok": True, "action": "막대 잡기+복귀"})
+
+        elif p == "/stir_beaker_move":
+            if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
+            def _stir_beaker_move_and_release():
+                global _stop_flag, _busy
+                _busy = True
+                _stop_flag = False
+                _stir_beaker_move()
+                _busy = False  # 비커 위 도달 후 SHAKE 대기 — busy 해제
+            threading.Thread(target=_stir_beaker_move_and_release, daemon=True).start()
+            respond(self, {"ok": True, "action": "비커 위치 이동"})
+
+        elif p == "/stir_do":
+            if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
+            threading.Thread(target=run_async, args=(_stir_do,), daemon=True).start()
+            respond(self, {"ok": True, "action": "섞기 동작"})
+
+        elif p == "/stir_drop_move":
+            if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
+            def _stir_drop_move_and_release():
+                global _stop_flag, _busy
+                _busy = True
+                _stop_flag = False
+                _stir_drop_move()
+                _busy = False  # 막대 원위치 도달 후 RELEASE 대기 — busy 해제
+            threading.Thread(target=_stir_drop_move_and_release, daemon=True).start()
+            respond(self, {"ok": True, "action": "막대 원위치 이동"})
+
+        elif p == "/stir_drop_release":
+            if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
+            threading.Thread(target=run_async, args=(_stir_drop_release,), daemon=True).start()
+            respond(self, {"ok": True, "action": "막대 놓기+복귀"})
+
         elif p == "/reset":
             if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
             threading.Thread(target=run_async,
@@ -443,6 +653,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    import socketserver
+    HTTPServer.allow_reuse_address = True
     server = HTTPServer(("0.0.0.0", 5001), Handler)
     print("=== SterileBot 서버 v2 (포트 5001) ===")
     try:    server.serve_forever()

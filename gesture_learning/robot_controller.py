@@ -7,7 +7,7 @@ import threading
 import time
 
 class RobotController:
-    def __init__(self, ip="192.168.0.27", port=5001):
+    def __init__(self, ip="192.168.0.32", port=5001):
         self.base    = f"http://{ip}:{port}"
         self.connected   = False
         self.playing     = False
@@ -72,6 +72,10 @@ class RobotController:
     def stop(self):
         self.playing = False
         self.current_action = "정지"
+        try:
+            self._get("/stop")
+        except:
+            pass
         print("[ROBOT] 정지")
 
     # ── 집기 ──
@@ -144,8 +148,32 @@ class RobotController:
 
     # ── 섞기 ──
     def stir(self):
-        """막대기 집기 → 섞기 → 막대기 내려놓기"""
+        """막대기 집기 → 섞기 → 막대기 내려놓기 (전체 자동)"""
         return self._start("/stir", "섞기")
+
+    def stir_move(self):
+        """막대 앞까지 이동 (GRAB 대기)"""
+        return self._start("/stir_move", "막대 이동")
+
+    def stir_grip(self):
+        """막대 잡기 + 홈 복귀"""
+        return self._start("/stir_grip", "막대 잡기")
+
+    def stir_beaker_move(self):
+        """비커 위치로 이동 (SHAKE 대기)"""
+        return self._start("/stir_beaker_move", "비커 위치 이동")
+
+    def stir_do(self):
+        """섞기 동작 + 홈 복귀"""
+        return self._start("/stir_do", "섞기 동작")
+
+    def stir_drop_move(self):
+        """막대 원위치로 이동 (RELEASE 대기)"""
+        return self._start("/stir_drop_move", "막대 원위치 이동")
+
+    def stir_drop_release(self):
+        """막대 놓기 + 홈 복귀"""
+        return self._start("/stir_drop_release", "막대 놓기")
 
     # ── 리셋 ──
     def reset(self):

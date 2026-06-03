@@ -15,9 +15,6 @@
 # =============================================================
 
 import cv2
-from camera_finder import get_camera_index
-import numpy as np
-import argparse
 import json
 import os
 import sys
@@ -26,16 +23,6 @@ import socket
 import threading
 import ctypes
 
-from mjpeg_streamer import MjpegStreamer
-
-# Reset 시스템 (사용자분이 만든 정교한 리셋)
-try:
-    from tube_state import TubeStateManager
-    import robot_reset_ext  # noqa: F401 - RobotController에 return_held/return_tube 추가
-    _RESET_AVAILABLE = True
-except ImportError as e:
-    print(f"[WARN] reset 시스템 비활성: {e}", flush=True)
-    _RESET_AVAILABLE = False
 # ────────────────────────────────────────────────
 #  설정값
 # ────────────────────────────────────────────────
@@ -45,9 +32,6 @@ CURSOR_PORT     = 9002
 GESTURE_PORT    = 9003
 DWELL_TIME      = 0.8
 DWELL_COOLDOWN  = 1.5
-
-# WPF 가 만든 reset 신호 파일 — 매 프레임 폴링
-RESET_TRIGGER_FILE = "reset_trigger.flag"
 
 # ────────────────────────────────────────────────
 #  구역 파일 로드
@@ -133,6 +117,7 @@ def gesture_receiver():
                     line, buf = buf.split("\n", 1)
                     try:
                         msg = json.loads(line.strip())
+                        print(f"[GESTURE RCV] {msg}")
                         with gesture_lock:
                             latest_gesture = msg
                     except:
@@ -151,186 +136,84 @@ def main():
 
     zones = load_zones()
 
-    # 명령행 인자 (WPF 자동 실행용). 인자 없으면 기존처럼 콘솔로 물어봄.
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--robot", choices=["yes", "no"], default=None,
-                        help="로봇 연결 여부 (WPF가 전달)")
-    parser.add_argument("--ip",   type=str, default="192.168.0.27")
-    parser.add_argument("--port", type=int, default=5001)
-    parser.add_argument("--cam",  type=int, default=None,
-                        help="카메라 인덱스 (지정 안 하면 기본값 사용)")
-    args, _ = parser.parse_known_args()
-
+    # 로봇 연결
     robot = None
-    if args.robot is None:
-        # 인자 없음 → 기존 콘솔 input 방식 (수동 실행 호환)
-        # 로봇 연결
-        robot = None
-        use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
-        if use_robot == 'y':
-            from robot_controller import RobotController
-            ip   = input("로봇 IP (기본 192.168.0.27): ").strip() or "192.168.0.27"
-            port = input("포트 (기본 5001): ").strip() or "5001"
-            robot = RobotController(ip=ip, port=int(port))
-            if not robot.connected:
-                print("[WARN] 로봇 연결 실패 → 시뮬레이션 모드")
-                robot = None
-        else:
-            print("[INFO] 시뮬레이션 모드")
-    
-    elif args.robot == "yes":
+    use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
+    if use_robot == 'y':
         from robot_controller import RobotController
-        robot = RobotController(ip=args.ip, port=args.port)
+        ip   = input("로봇 IP (기본 192.168.0.32): ").strip() or "192.168.0.32"
+        port = input("포트 (기본 5001): ").strip() or "5001"
+        robot = RobotController(ip=ip, port=int(port))
         if not robot.connected:
             print("[WARN] 로봇 연결 실패 → 시뮬레이션 모드")
             robot = None
+        else:
+            print("[ROBOT] 홈 위치로 이동 중...")
+            robot.go_home()
     else:
-        print("[INFO] 시뮬레이션 모드 (--robot no)")
+        print("[INFO] 시뮬레이션 모드")
 
     # 소켓 스레드 시작
     threading.Thread(target=cursor_receiver,  daemon=True).start()
     threading.Thread(target=gesture_receiver, daemon=True).start()
 
-    # Reset 시스템 초기화
-    state_mgr = None
-    reset_running = False        # 지금 reset 진행 중인가
-    reset_status_text = ""        # UI에 표시할 메시지
-    if _RESET_AVAILABLE:
-        state_mgr = TubeStateManager()
-        # 시작 시 남아있는 reset_trigger 파일은 무시
-        if os.path.exists(RESET_TRIGGER_FILE):
-            try:
-                os.remove(RESET_TRIGGER_FILE)
-                print("[RESET] 시작 시 남은 trigger 파일 제거", flush=True)
-            except Exception:
-                pass
-
     # 웹캠
-    # 카메라 인덱스 결정: --cam 인자 > camera_map.json("lab") > CAMERA_INDEX
-    if args.cam is not None:
-        cam_idx = args.cam
-        print(f"[INFO] 사용 카메라 인덱스: {cam_idx} (--cam 인자)", flush=True)
-    else:
-        cam_idx = get_camera_index("lab", fallback=CAMERA_INDEX)
-    cap = cv2.VideoCapture(cam_idx, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)         # 자동 초점 OFF
     fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     fh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"[INFO] 웹캠: {fw}x{fh}")
 
     cv2.namedWindow("Zone Tracker", cv2.WINDOW_NORMAL)
-    # WPF 자동 실행 시 cv2 창을 화면 밖으로 (안 보이게)
-    if args.robot is not None:
-        cv2.moveWindow("Zone Tracker", -2000, -2000)
-        cv2.resizeWindow("Zone Tracker", 1, 1)
-
     cv2.resizeWindow("Zone Tracker", fw, fh)
 
     screen_w = ctypes.windll.user32.GetSystemMetrics(0)
     screen_h = ctypes.windll.user32.GetSystemMetrics(1)
 
     # 상태
-    state          = "STAGE1"   # STAGE1: 큰구역선택 / STAGE2: 세부선택
-    selected_zone  = None       # 선택된 1단계 구역
-    selected_child = None       # 선택된 세부 구역
-    tube_slots     = set()      # 시험관이 꽂혀있는 슬롯 추적 (수평 집기용)
-    pickup_pending = False      # pickup_move 후 GRAB 대기 중 여부
-    drop_pending   = False      # drop_move 후 RELEASE 대기 중 여부
-    holding_tube   = False      # 시험관 잡고 있는 상태
-    pickup_mode    = None       # "vertical" or "horizontal"
-    beaker_ready   = False      # 비커 위치 도달 후 POUR 대기
-    dwell_zone     = None
-    dwell_start_t  = None
-    dwell_last_t   = 0.0
-    last_gesture   = None
-
-    # MJPEG 스트리밍 시작 (WPF 모니터로 화면 송출)
-    streamer = MjpegStreamer(port=8090, quality=70, fps_limit=25)
-    streamer.start()
-
-    def show(img):
-        cv2.imshow("Zone Tracker", img)
-        streamer.update(img)
+    # ── 상태 변수 ──
+    state              = "STAGE1"
+    selected_zone      = None
+    selected_child     = None
+    tube_slots         = set()
+    pickup_pending     = False
+    drop_pending       = False
+    holding_tube       = False
+    pickup_mode        = None
+    beaker_ready       = False
+    stir_pending       = False
+    stir_drop_pending  = False
+    holding_stir       = False
+    stir_step          = None
+    dwell_zone         = None
+    dwell_start_t      = None
+    dwell_last_t       = 0.0
+    last_gesture       = None
+    last_robot_action  = None
+    last_robot_param   = None
+    stop_time          = 0.0   # STOP 발생 시각 (플리커 방지용)
 
     print("\n[INFO] 트래킹 시작! (q: 종료)")
 
-    # ResetRunner 는 _RESET_AVAILABLE 일 때만 늦게 만든다 (robot 이 있을 때만 의미 있음)
-    reset_runner = None
-    if _RESET_AVAILABLE and robot:
-        try:
-            # ResetRunner 는 이 파일에 정의하지 않음 — 임시로 lambda 같은 간단 버전 사용
-            # plan 을 받아 robot.return_held / return_tube 를 순차 호출하는 간이 러너
-            class _SimpleResetRunner:
-                def __init__(self, sm, rb):
-                    self.sm = sm
-                    self.rb = rb
-                    self.busy = False
-                    self.status = ""
-                def start(self):
-                    if self.busy:
-                        print("[RESET] 이미 진행 중", flush=True)
-                        return
-                    plan = self.sm.build_reset_plan()
-                    if not plan:
-                        self.status = "이미 모두 원위치"
-                        print("[RESET] 이미 모두 원위치", flush=True)
-                        return
-                    self.busy = True
-                    threading.Thread(target=self._run, args=(plan,), daemon=True).start()
-                def _run(self, plan):
-                    try:
-                        for step in plan:
-                            tube = step["tube"]
-                            tube_num = int(tube.split("_")[1])
-                            if step["action"] == "release_at_origin":
-                                self.status = f"{tube} 원위치로 놓기"
-                                print(f"[RESET] {self.status}", flush=True)
-                                self.rb.return_held(tube_num, sync=True)
-                                self.sm.mark_release()
-                            else:
-                                self.status = f"{tube} {step['from']} -> {step['to']}"
-                                print(f"[RESET] {self.status}", flush=True)
-                                self.rb.return_tube(step["from"], tube_num, sync=True)
-                                # 잡기 + 놓기 다 끝남 — state 갱신 (그리퍼 한 사이클 처리됨)
-                                self.sm.state["tubes"][tube]["location"] = self.sm.state["tubes"][tube]["origin"]
-                                self.sm.state["robot"]["gripper"] = "open"
-                                self.sm.state["robot"]["holding"] = None
-                                self.sm.state["robot"]["approach_kind"] = None
-                                self.sm.state["robot"]["approach_target"] = None
-                                self.sm.save()
-                        self.status = "완료"
-                        print("[RESET] 완료", flush=True)
-                    except Exception as e:
-                        self.status = f"실패: {e}"
-                        print(f"[RESET] {self.status}", flush=True)
-                    finally:
-                        self.busy = False
-            reset_runner = _SimpleResetRunner(state_mgr, robot)
-            print("[RESET] ResetRunner 준비 완료", flush=True)
-        except Exception as e:
-            print(f"[RESET] ResetRunner 초기화 실패: {e}", flush=True)
+    prev_playing = False  # robot.playing 이전 상태 추적
 
     while True:
-        # === Reset 트리거 파일 폴링 ===
-        if _RESET_AVAILABLE and reset_runner and os.path.exists(RESET_TRIGGER_FILE):
-            try:
-                os.remove(RESET_TRIGGER_FILE)
-            except Exception:
-                pass
-            if not reset_runner.busy:
-                print("[RESET] WPF 트리거 감지 → 자동 실행", flush=True)
-                reset_runner.start()
-            else:
-                print("[RESET] 이미 진행 중이라 무시", flush=True)
-
         ret, frame = cap.read()
         if not ret:
             continue
 
         display = frame.copy()
         now     = time.time()
+
+        # robot.playing 변화 감지 — 홈 복귀 완료 시 구역 표시
+        cur_playing = robot.playing if robot else False
+        if prev_playing and not cur_playing:
+            # 동작 완료 → STIRRING 상태면 전체 구역 표시로 전환
+            if stir_step == "STIRRING":
+                stir_step = None
+                print("[INFO] 섞기 홈 복귀 완료 → 전체 구역 표시")
+        prev_playing = cur_playing
 
         # 커서 좌표 → 웹캠 좌표 변환
         with cursor_lock:
@@ -356,7 +239,21 @@ def main():
 
             # Dwell 처리
             if hover_zone:
-                if dwell_zone != hover_zone["name"]:
+                hz_name = hover_zone["name"].upper()
+
+                # stir_step MOVE 상태 → Stir_area/CANCEL만 Dwell 허용
+                if stir_step == "MOVE" and hz_name not in ("STIR_AREA", "HOME"):
+                    dwell_zone    = None
+                    dwell_start_t = None
+                # BEAKER_MOVING / STIRRING → Dwell 전체 차단 (CANCEL 제외)
+                elif stir_step in ("BEAKER_MOVING", "STIRRING") and hz_name != "HOME":
+                    dwell_zone    = None
+                    dwell_start_t = None
+                # DROP_MOVE 상태 → Stir_area/CANCEL만 Dwell 허용
+                elif stir_step == "DROP_MOVE" and hz_name not in ("STIR_AREA", "HOME"):
+                    dwell_zone    = None
+                    dwell_start_t = None
+                elif dwell_zone != hover_zone["name"]:
                     dwell_zone    = hover_zone["name"]
                     dwell_start_t = now
                 else:
@@ -368,23 +265,78 @@ def main():
                         dwell_zone    = None
 
                         # CANCEL 구역 선택 시
-                        if hover_zone["name"].upper() == "CANCEL":
-                            if state == "STAGE2":
-                                if selected_child:
-                                    selected_child = None
-                                    print("[CANCEL] 세부 선택 취소")
+                        if hover_zone["name"].upper() == "HOME":
+                            beaker_ready = False
+                            if robot and robot.playing:
+                                print("[HOME] 무시 — 이동 중")
+                            elif state == "STAGE2" and selected_child:
+                                # STAGE2 세부 선택 중 → 세부 선택만 취소
+                                selected_child = None
+                                print("[HOME] 세부 선택 취소")
+                            else:
+                                # 그 외 모든 경우 → 홈 복귀 + 전체 초기화
+                                if robot:
+                                    robot.go_home()
+                                stir_step         = None
+                                stir_pending      = False
+                                stir_drop_pending = False
+                                pickup_pending    = False
+                                drop_pending      = False
+                                holding_stir      = False
+                                holding_tube      = False
+                                selected_zone     = None
+                                selected_child    = None
+                                state             = "STAGE1"
+                                last_gesture      = None
+                                print("[HOME] 홈 복귀 + 전체 초기화")
+                        elif hover_zone["name"].upper() == "BEAKER" and (holding_tube or holding_stir):
+                            if holding_stir and not stir_drop_pending and stir_step != "DROP_MOVE":
+                                # 막대 잡은 상태 → 비커 위치로 이동 후 SHAKE 대기 (중복 방지)
+                                print("[BEAKER] 비커 위치로 이동 → SHAKE 제스처로 섞기")
+                                stir_step = "BEAKER_MOVING"  # 이동 중 플래그 → 재트리거 방지
+                                dwell_last_t = now  # cooldown 강제 리셋
+                                if robot:
+                                    robot.stir_beaker_move()
+                            elif not holding_stir:
+                                # 시험관 잡은 상태 → 비커 위치로 이동 후 POUR 대기
+                                print("[BEAKER] 비커 위치로 이동 → POUR 제스처로 붓기")
+                                beaker_ready = True
+                                dwell_last_t = now  # cooldown 강제 리셋
+                                if robot:
+                                    robot.beaker_move()
+                        elif hover_zone["name"].upper() == "STIR_AREA":
+                            if holding_stir and not stir_drop_pending:
+                                # 막대 들고 있으면 → 원위치로 이동 후 RELEASE 대기
+                                print("[STIR] 막대 원위치로 이동 → RELEASE 제스처로 놓기")
+                                stir_step = "DROP_MOVE"
+                                dwell_last_t = now  # cooldown 강제 리셋
+                                if robot:
+                                    ok = robot.stir_drop_move()
+                                    print(f"  [ROBOT] stir_drop_move → {ok}")
+                                    if ok:
+                                        stir_drop_pending = True
                                 else:
-                                    state         = "STAGE1"
-                                    selected_zone = None
-                                    print("[CANCEL] 1단계로 복귀")
-                        elif hover_zone["name"].upper() == "BEAKER" and holding_tube:
-                            # 비커 선택 → 비커 위치로 이동
-                            print("[BEAKER] 비커 위치로 이동 → POUR 제스처로 붓기")
-                            beaker_ready = True
-                            if robot:
-                                robot.beaker_move()
+                                    stir_drop_pending = True
+                                    print("[SIM] stir_drop_move")
+                            elif stir_step is None and not holding_tube and not holding_stir:
+                                print("[STIR] 막대 위치로 이동 → GRAB 제스처로 잡기")
+                                stir_step = "MOVE"
+                                if robot:
+                                    ok = robot.stir_move()
+                                    print(f"  [ROBOT] stir_move → {ok}")
+                                    if ok:
+                                        stir_pending = True
+                                        last_robot_action = "stir_move"
+                                        last_robot_param  = None
+                                    else:
+                                        stir_step = None
+                                        print("  [ERROR] stir_move 실패")
+                                else:
+                                    stir_pending = True
+                                    print("[SIM] stir_move")
                         else:
-                            # 1단계 구역 선택 완료
+                            # 일반 구역 (A_tubes, B_tubes, Reagent_bottles 등) → STAGE2
+                            beaker_ready  = False
                             selected_zone = hover_zone
                             state         = "STAGE2"
                             print(f"\n[SELECT1] {selected_zone['name']} 선택됨")
@@ -396,23 +348,33 @@ def main():
             # 구역 표시
             for z in zones:
                 x1, y1, x2, y2 = z["x1"], z["y1"], z["x2"], z["y2"]
-                is_cancel = z["name"].upper() == "CANCEL"
-                is_beaker = z["name"].upper() == "BEAKER"
-                is_hover  = hover_zone and hover_zone["name"] == z["name"]
+                is_home  = z["name"].upper() == "HOME"
+                is_beaker  = z["name"].upper() == "BEAKER"
+                is_stir    = z["name"].upper() == "STIR_AREA"
+                is_hover   = hover_zone and hover_zone["name"] == z["name"]
 
-                # beaker_ready 상태면 비커만 표시, 나머지 숨김
-                if beaker_ready and not is_beaker:
+                # stir_step MOVE 상태면 Stir_area + CANCEL만 표시
+                if stir_step == "MOVE" and not is_stir and not is_home:
                     continue
 
-                if is_cancel:
+                # BEAKER_MOVING / STIRRING 상태 → 비커+CANCEL만
+                if stir_step in ("BEAKER_MOVING", "STIRRING") and not is_beaker and not is_home:
+                    continue
+
+                # DROP_MOVE 상태 → Stir_area + CANCEL만 표시
+                if stir_step == "DROP_MOVE" and not is_stir and not is_home:
+                    continue
+
+                if is_home:
                     color = (0, 0, 255) if is_hover else (0, 0, 180)
                 else:
                     color = (0, 220, 255) if is_hover else (0, 255, 157)
                 thick = 3 if is_hover else 2
                 cv2.rectangle(display, (x1,y1), (x2,y2), color, thick)
-                cv2.putText(display, z["name"],
-                            (x1+5, y1+30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+                if not is_home:  # HOME은 별도 루프에서 텍스트 표시
+                    cv2.putText(display, z["name"],
+                                (x1+5, y1+30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
                 # Dwell 진행 바
                 if is_hover and dwell_start_t:
@@ -423,10 +385,46 @@ def main():
                                   (0,255,157), -1)
 
             # 상태 표시
-            cv2.putText(display,
-                        "1단계: 시선으로 구역 선택 (Dwell)",
-                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.8, (0,255,255), 2)
+            if stir_step == "MOVE":
+                label = "Stir: Moving" if (robot and robot.playing) else "Stir: GRAB"
+                cv2.putText(display, label,
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0,255,255), 2)
+            elif stir_step == "BEAKER_MOVING":
+                cv2.putText(display, "Stir: Moving",
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0,255,255), 2)
+            elif stir_step == "STIRRING":
+                cv2.putText(display, "Stir: Stirring",
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0,255,255), 2)
+            elif stir_step == "DROP_MOVE":
+                label = "Stir: Moving" if (robot and robot.playing) else "Stir: RELEASE"
+                cv2.putText(display, label,
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0,255,255), 2)
+            elif holding_stir:
+                cv2.putText(display, "Stir: Holding",
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0,255,255), 2)
+            elif pickup_pending:
+                label = "Moving" if (robot and robot.playing) else "GRAB"
+                cv2.putText(display, label,
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0,255,255), 2)
+            elif drop_pending:
+                label = "Moving" if (robot and robot.playing) else "RELEASE"
+                cv2.putText(display, label,
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0,255,255), 2)
+            elif beaker_ready:
+                cv2.putText(display, "POUR",
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0,140,255), 2)
+            elif robot and robot.playing:
+                cv2.putText(display, "Moving",
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0,255,255), 2)
 
         # ── STAGE1에서 POUR 처리 (비커 이동 후) ──
         if state == "STAGE1" and holding_tube and beaker_ready:
@@ -457,20 +455,37 @@ def main():
 
                         zone_name = selected_zone["name"].upper()
                     if "REAGENT" in zone_name:
-                        # 시약통 → pickup_move(tube_num) [수직]
-                        tube_num = finger
-                        if robot:
-                            ok = robot.pickup_move(tube_num)
-                            print(f"  [ROBOT] pickup_move({tube_num}) → {ok}")
-                            if ok:
+                        if stir_step == "DROP_MOVE":
+                            # 섞기 후 막대 원위치로 이동 단계
+                            print(f"  [ROBOT] stir_drop_move → 막대 원위치 이동")
+                            if robot:
+                                ok = robot.stir_drop_move()
+                                print(f"  [ROBOT] stir_drop_move → {ok}")
+                                if ok:
+                                    drop_pending = True
+                            else:
+                                print(f"  [SIM] stir_drop_move")
+                                drop_pending = True
+                            selected_zone  = None
+                            selected_child = None
+                            state = "STAGE1"
+                            if drop_pending:
+                                print("  → 막대 원위치 도달 후 RELEASE 제스처로 놓기")
+                        else:
+                            # 시약통 → pickup_move(tube_num) [수직]
+                            tube_num = finger
+                            if robot:
+                                ok = robot.pickup_move(tube_num)
+                                print(f"  [ROBOT] pickup_move({tube_num}) → {ok}")
+                                if ok:
+                                    pickup_pending    = True
+                                    pickup_mode       = "vertical"
+                                    last_robot_action = "pickup_move"
+                                    last_robot_param  = tube_num
+                            else:
+                                print(f"  [SIM] pickup_move({tube_num})")
                                 pickup_pending = True
                                 pickup_mode    = "vertical"
-                                if state_mgr:
-                                    state_mgr.mark_approach("pickup", f"bottle_{tube_num}")
-                        else:
-                            print(f"  [SIM] pickup_move({tube_num})")
-                            pickup_pending = True
-                            pickup_mode    = "vertical"
                     else:
                         # A_tubes, B_tubes
                         # 이미 꽂혀있는 슬롯이면 수평 집기, 아니면 수직 꽂기
@@ -490,8 +505,6 @@ def main():
                                     tube_slots.discard(slot)
                                     pickup_pending = True
                                     pickup_mode    = "horizontal"
-                                    if state_mgr:
-                                        state_mgr.mark_approach("pickup", slot)
                             else:
                                 tube_slots.discard(slot)
                                 pickup_pending = True
@@ -510,8 +523,6 @@ def main():
                                     print(f"  [ROBOT] side_drop_move({slot}) → {ok}")
                                     if ok:
                                         drop_pending = True
-                                        if state_mgr:
-                                            state_mgr.mark_approach("drop", slot)
                                 else:
                                     drop_pending = True
                             else:
@@ -526,8 +537,6 @@ def main():
                                     print(f"  [ROBOT] drop_move({slot}) → {ok}")
                                     if ok:
                                         drop_pending = True
-                                        if state_mgr:
-                                            state_mgr.mark_approach("drop", slot)
                                 else:
                                     print(f"  [SIM] drop_move({slot})")
                                     drop_pending = True
@@ -536,163 +545,246 @@ def main():
                         elif not pickup_pending:
                             print(f"  → {slot} 완료")
 
-            # 제스처로 동작 제어 (로봇 동작 중이면 대기)
-            if gesture and "action" in gesture and (selected_child or holding_tube):
-                if robot and robot.playing:
-                    pass  # 로봇 동작 중 — 제스처 무시
-                else:
-                    action = gesture["action"]
-                    if action == "GRAB" and robot:
-                        if pickup_pending:
-                            robot.pickup_grip()
-                            if state_mgr:
-                                state_mgr.mark_grab()
+        # 제스처로 동작 제어
+        if gesture and "action" in gesture:
+            print(f"[DEBUG] action={gesture.get('action')} stir_step={stir_step} stir_pending={stir_pending} pickup_pending={pickup_pending} robot.playing={robot.playing if robot else 'N/A'}")
+        # STOP은 항상 최우선 처리 — 로봇만 정지, 상태 유지
+        if gesture and gesture.get("action") == "STOP" and robot:
+            robot.stop()
+            if last_gesture != "STOP":
+                stop_time = now
+                print("[ROBOT] 긴급 정지 — CANCEL로 취소, 손 내리면 재개")
+            last_gesture = "STOP"
+
+        # STOP_RELEASE — 1.5초 이상 지난 STOP이어야 재개 (플리커 방지)
+        elif gesture and gesture.get("action") == "STOP_RELEASE":
+            if now - stop_time >= 1.5:
+                last_gesture = None
+                print("[INFO] 정지 해제 → 동작 재개")
+                if robot and last_robot_action:
+                    if last_robot_action == "stir_move" and stir_pending:
+                        ok = robot.stir_move()
+                        print(f"  [ROBOT] stir_move 재개 → {ok}")
+                        if not ok:
+                            stir_step    = None
+                            stir_pending = False
+                    elif last_robot_action == "pickup_move" and pickup_pending:
+                        ok = robot.pickup_move(last_robot_param)
+                        print(f"  [ROBOT] pickup_move({last_robot_param}) 재개 → {ok}")
+                        if not ok:
                             pickup_pending = False
-                            holding_tube   = True
-                            # pickup_mode는 pickup_move/pickup_lift_move에서 이미 설정됨
-                            selected_zone  = None
-                            selected_child = None
-                            state = "STAGE1"
-                            print(f"[ROBOT] 잡기 + 홈 복귀 ({pickup_mode}) → 1단계로 복귀")
-                        else:
-                            robot.grip_close()
-                            print("[ROBOT] 집기")
-                    elif action == "RELEASE" and robot:
-                        if drop_pending:
-                            if pickup_mode == "horizontal":
-                                robot.side_drop_release()
-                                print("[ROBOT] 수평 놓기 + 복귀")
-                            else:
-                                robot.drop_release()
-                                print("[ROBOT] 수직 놓기 + 복귀")
-                            if state_mgr:
-                                state_mgr.mark_release()
-                            drop_pending = False
-                            holding_tube = False
-                            pickup_mode  = None
-                            if selected_child:
-                                tube_slots.add(selected_child.get("slot",""))
-                        else:
-                            robot.grip_open()
-                            holding_tube = False
-                            pickup_mode  = None
-                            print("[ROBOT] 그리퍼 열기")
-                        pickup_pending = False
-                        selected_zone  = None
-                        selected_child = None
-                        state = "STAGE1"
-                        print("[INFO] 1단계로 복귀")
-                    elif action == "POUR" and robot:
-                        if holding_tube:
-                            robot.beaker_pour()
-                            beaker_ready = False
-                            print("[ROBOT] 붓기 동작")
-                        else:
-                            pour_slot = selected_child.get("slot", "A1") if selected_child else "A1"
-                            robot.pour(pour_slot)
-                            print(f"[ROBOT] 붓기 전체 → {pour_slot}")
-                        selected_zone  = None
-                        selected_child = None
-                        state = "STAGE1"
-                    elif action == "SHAKE" and robot:
-                        robot.stir()
-                        print("[ROBOT] 섞기")
-                        selected_zone  = None
-                        selected_child = None
-                        state = "STAGE1"
-                    elif action == "MOVE":
-                        state          = "STAGE1"
-                        selected_zone  = None
-                        selected_child = None
-                        print("[INFO] 1단계로 복귀")
-
-            # 1단계 구역 박스 → 숨김 (표시 안 함)
-            # CANCEL 구역만 항상 표시
-            for z in zones:
-                if z["name"].upper() == "CANCEL":
-                    x1,y1,x2,y2 = z["x1"],z["y1"],z["x2"],z["y2"]
-                    is_hover = (z["x1"] <= cam_cx <= z["x2"] and
-                                z["y1"] <= cam_cy <= z["y2"])
-                    color = (0, 0, 255) if is_hover else (0, 0, 180)
-                    cv2.rectangle(display, (x1,y1), (x2,y2), color, 2)
-                    cv2.putText(display, "CANCEL",
-                                (x1+5, y1+30),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-
-                    # CANCEL 구역 Dwell 처리
-                    if is_hover:
-                        if dwell_zone != "CANCEL":
-                            dwell_zone    = "CANCEL"
-                            dwell_start_t = now
-                        else:
-                            elapsed = now - dwell_start_t
-                            pct     = min(elapsed / DWELL_TIME, 1.0)
-                            bw      = int((x2-x1) * pct)
-                            cv2.rectangle(display,
-                                          (x1, y2+4), (x1+bw, y2+12),
-                                          (0,0,255), -1)
-                            if pct >= 1.0 and now - dwell_last_t > DWELL_COOLDOWN:
-                                dwell_last_t = now
-                                dwell_zone   = None
-                                if selected_child:
-                                    selected_child = None
-                                    print("[CANCEL] 세부 선택 취소")
-                                else:
-                                    state         = "STAGE1"
-                                    selected_zone = None
-                                    print("[CANCEL] 1단계로 복귀")
-                    else:
-                        if dwell_zone == "CANCEL":
-                            dwell_zone    = None
-                            dwell_start_t = None
-
-            # 세부 박스 표시
-            # 세부 구역 선택 전: 전체 표시 (연두색)
-            # 세부 구역 선택 후: 선택된 것만 표시 (노란색)
-            for i, ch in enumerate(children):
-                cx1,cy1,cx2,cy2 = ch["x1"],ch["y1"],ch["x2"],ch["y2"]
-                is_selected = (selected_child and
-                               selected_child["name"] == ch["name"])
-
-                # 세부 선택 후엔 선택된 것만 표시
-                if selected_child and not is_selected:
-                    continue
-
-                color = (0, 220, 255) if is_selected else (100, 255, 100)
-                thick = 3 if is_selected else 2
-                cv2.rectangle(display, (cx1,cy1), (cx2,cy2), color, thick)
-                cv2.putText(display,
-                            f"{i+1}. {ch['name']}",
-                            (cx1+5, cy1+28),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-
-            # 상태 표시
-            if beaker_ready and holding_tube:
-                cv2.putText(display,
-                            "비커 선택됨  |  POUR 제스처로 붓기",
-                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.85, (0, 140, 255), 2)
-                cv2.putText(display,
-                            "MOVE=취소",
-                            (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6, (150, 150, 150), 1)
-            elif state != "STAGE2" or not selected_zone:
-                pass
-            elif selected_child:
-                cv2.putText(display,
-                            f"Selected: {selected_child['name']} | ESC=cancel",
-                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.8, (0,220,255), 2)
             else:
-                cv2.putText(display,
-                            f"Stage2: {selected_zone['name']} | Gesture 1~{len(children)}",
-                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.8, (0,220,255), 2)
-            if state == "STAGE2":
-                cv2.putText(display,
-                            "MOVE=back to Stage1  ESC=cancel selection",
-                            (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6, (180,180,180), 1)
+                # 너무 빨리 온 STOP_RELEASE → 플리커, 무시
+                last_gesture = "STOP"
+
+        elif gesture and gesture.get("action") not in ("STOP", "STOP_RELEASE"):
+            last_gesture = gesture.get("action")
+
+        if gesture and "action" in gesture and (selected_child or holding_tube or pickup_pending or drop_pending or stir_step or holding_stir or stir_pending or stir_drop_pending):
+            action = gesture["action"]
+
+            # STOP은 위에서 이미 처리
+            if action == "STOP":
+                pass
+
+            # robot.playing 체크 (stir/pickup 대기 제스처는 예외)
+            elif robot and robot.playing:
+                stir_waiting = (stir_pending and action == "GRAB") or \
+                               (stir_drop_pending and action == "RELEASE")
+                # SHAKE는 반드시 이동 완료(robot.playing=False) 후에만 처리
+                if stir_waiting:
+                    pass
+                else:
+                    pass
+                    action = None
+
+            # ── GRAB ──
+            if action == "GRAB" and robot:
+                if stir_pending:
+                    ok = robot.stir_grip()
+                    print(f"  [ROBOT] stir_grip → {ok}")
+                    if ok:
+                        stir_pending      = False
+                        holding_stir      = True
+                        stir_step         = None
+                        last_robot_action = None  # 완료
+                        state             = "STAGE1"
+                        print("[ROBOT] 막대 잡기 완료 → Beaker 구역 선택하세요")
+                elif pickup_pending:
+                    ok = robot.pickup_grip()
+                    print(f"  [ROBOT] pickup_grip → {ok}")
+                    if ok:
+                        pickup_pending    = False
+                        holding_tube      = True
+                        last_robot_action = None  # 완료
+                        selected_zone     = None
+                        selected_child    = None
+                        state = "STAGE1"
+                        print(f"[ROBOT] 잡기 완료 ({pickup_mode}) → 1단계로 복귀")
+                elif not holding_stir and not holding_tube:
+                    robot.grip_close()
+                    print("[ROBOT] 집기")
+
+            elif action == "RELEASE" and robot:
+                if stir_drop_pending:
+                    ok = robot.stir_drop_release()
+                    print(f"  [ROBOT] stir_drop_release → {ok}")
+                    if ok:
+                        stir_drop_pending = False
+                        holding_stir      = False
+                        stir_step         = None
+                        state             = "STAGE1"
+                        print("[ROBOT] 막대 반납 완료 → 섞기 끝")
+                elif drop_pending:
+                    if pickup_mode == "horizontal":
+                        robot.side_drop_release()
+                        print("[ROBOT] 수평 놓기 + 복귀")
+                    else:
+                        robot.drop_release()
+                        print("[ROBOT] 수직 놓기 + 복귀")
+                    drop_pending = False
+                    holding_tube = False
+                    pickup_mode  = None
+                    if selected_child:
+                        tube_slots.add(selected_child.get("slot",""))
+                    pickup_pending = False
+                    selected_zone  = None
+                    selected_child = None
+                    state = "STAGE1"
+                    print("[INFO] 1단계로 복귀")
+                elif not holding_stir:
+                    robot.grip_open()
+                    holding_tube = False
+                    pickup_mode  = None
+                    print("[ROBOT] 그리퍼 열기")
+
+            elif action == "POUR" and robot:
+                if holding_tube and beaker_ready:
+                    robot.beaker_pour()
+                    beaker_ready = False
+                    holding_tube = False
+                    print("[ROBOT] 붓기 동작")
+                    selected_zone  = None
+                    selected_child = None
+                    state = "STAGE1"
+
+            elif action == "SHAKE" and robot:
+                if holding_stir and stir_step == "BEAKER_MOVING":
+                    ok = robot.stir_do()
+                    print(f"  [ROBOT] stir_do → {ok}")
+                    if ok:
+                        stir_step    = "STIRRING"
+                        holding_stir = True
+                        state        = "STAGE1"
+                        print("[ROBOT] 섞기 실행 → 홈 복귀 후 전체 구역 표시")
+
+            elif action == "MOVE":
+                state          = "STAGE1"
+                selected_zone  = None
+                selected_child = None
+                print("[INFO] 1단계로 복귀")
+
+        # 1단계 구역 박스 → 숨김 (표시 안 함)
+        # CANCEL 구역만 항상 표시
+        for z in zones:
+            if z["name"].upper() == "HOME":
+                x1,y1,x2,y2 = z["x1"],z["y1"],z["x2"],z["y2"]
+                is_hover = (z["x1"] <= cam_cx <= z["x2"] and
+                            z["y1"] <= cam_cy <= z["y2"])
+                color = (0, 0, 255) if is_hover else (0, 0, 180)
+                cv2.rectangle(display, (x1,y1), (x2,y2), color, 2)
+                cv2.putText(display, "HOME",
+                            (x1+5, y1+30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+
+                # CANCEL 구역 Dwell 처리
+                if is_hover:
+                    if dwell_zone != "HOME":
+                        dwell_zone    = "HOME"
+                        dwell_start_t = now
+                    else:
+                        elapsed = now - dwell_start_t
+                        pct     = min(elapsed / DWELL_TIME, 1.0)
+                        bw      = int((x2-x1) * pct)
+                        cv2.rectangle(display,
+                                      (x1, y2+4), (x1+bw, y2+12),
+                                      (0,0,255), -1)
+                        if pct >= 1.0 and now - dwell_last_t > DWELL_COOLDOWN:
+                            dwell_last_t = now
+                            dwell_zone   = None
+                            beaker_ready = False
+                            if robot and robot.playing:
+                                print("[HOME] 무시 — 이동 중")
+                            elif state == "STAGE2" and selected_child:
+                                selected_child = None
+                                print("[HOME] 세부 선택 취소")
+                            else:
+                                if robot:
+                                    robot.go_home()
+                                stir_step         = None
+                                stir_pending      = False
+                                stir_drop_pending = False
+                                pickup_pending    = False
+                                drop_pending      = False
+                                holding_stir      = False
+                                holding_tube      = False
+                                selected_zone     = None
+                                selected_child    = None
+                                state             = "STAGE1"
+                                last_gesture      = None
+                                print("[HOME] 홈 복귀 + 전체 초기화")
+                else:
+                    if dwell_zone == "HOME":
+                        dwell_zone    = None
+                        dwell_start_t = None
+
+        # 세부 박스 표시 (STAGE2일 때만)
+        if state == "STAGE2" and selected_zone:
+          children = selected_zone.get("children", [])
+          for i, ch in enumerate(children):
+            cx1,cy1,cx2,cy2 = ch["x1"],ch["y1"],ch["x2"],ch["y2"]
+            is_selected = (selected_child and
+                           selected_child["name"] == ch["name"])
+
+            # 세부 선택 후엔 선택된 것만 표시
+            if selected_child and not is_selected:
+                continue
+
+            color = (0, 220, 255) if is_selected else (100, 255, 100)
+            thick = 3 if is_selected else 2
+            cv2.rectangle(display, (cx1,cy1), (cx2,cy2), color, thick)
+            cv2.putText(display,
+                        f"{i+1}. {ch['name']}",
+                        (cx1+5, cy1+28),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+
+        # 상태 표시
+        if beaker_ready and holding_tube:
+            cv2.putText(display,
+                        "POUR",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.85, (0, 140, 255), 2)
+            cv2.putText(display,
+                        "MOVE=cancel",
+                        (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6, (150, 150, 150), 1)
+        elif state != "STAGE2" or not selected_zone:
+            pass
+        elif selected_child:
+            cv2.putText(display,
+                        f"{selected_child['name']}",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8, (0,220,255), 2)
+        else:
+            cv2.putText(display,
+                        f"{selected_zone['name']} | 1~{len(selected_zone.get('children',[]))}",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8, (0,220,255), 2)
+        if state == "STAGE2":
+            cv2.putText(display,
+                        "MOVE=back to Stage1  ESC=cancel selection",
+                        (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6, (180,180,180), 1)
 
         # 커서 표시
         cv2.circle(display, (cam_cx, cam_cy), 12, (255,255,255), 2)
@@ -706,16 +798,7 @@ def main():
                     (10, fh-15), cv2.FONT_HERSHEY_SIMPLEX,
                     0.6, (0,255,157), 1)
 
-        # Reset 진행 중 UI 오버레이
-        if _RESET_AVAILABLE and reset_runner and reset_runner.busy:
-            overlay = display.copy()
-            cv2.rectangle(overlay, (0, 0), (fw, 60), (0, 0, 0), -1)
-            display = cv2.addWeighted(overlay, 0.7, display, 0.3, 0)
-            cv2.putText(display, f"[RESET] {reset_runner.status}",
-                        (20, 40), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.85, (0, 200, 255), 2)
-
-        show(display)
+        cv2.imshow("Zone Tracker", display)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
@@ -734,7 +817,6 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
-    streamer.stop()
     print("[INFO] 종료")
 
 
