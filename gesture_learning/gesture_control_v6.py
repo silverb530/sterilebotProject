@@ -326,9 +326,10 @@ def run_realtime(model):
             no_hand_frames += 1
             if no_hand_frames > 10:
                 if last_gesture == "STOP":
-                    # 손 치움 → STOP 해제
+                    # 손 치움 → STOP 해제, Zone_tracker에 재개 신호
                     last_gesture = "UNKNOWN"
                     print("[INFO] 정지 해제")
+                    send_gesture("STOP_RELEASE")
                 gesture = "UNKNOWN"  # 손 없으면 항상 UNKNOWN (STOP 루프 방지)
 
         # ── 상태 머신 ──
@@ -532,7 +533,7 @@ def main():
     use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
     if use_robot == 'y':
         from robot_controller import RobotController
-        ip   = input("로봇 IP (기본 192.168.0.30): ").strip() or "192.168.0.30"
+        ip   = input("로봇 IP (기본 192.168.0.32): ").strip() or "192.168.0.32"
         port = input("포트 (기본 5001): ").strip() or "5001"
         robot = RobotController(ip=ip, port=int(port))
         if robot.connected:

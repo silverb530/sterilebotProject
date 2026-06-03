@@ -367,6 +367,9 @@ def _stir_beaker_move():
         last_t = pt["t"]
         send_safe(pt["angles"]); time.sleep(wait)
 
+    if _stop_flag:
+        print("[서버] 긴급 정지 — 비커 이동 중단")
+        return
     _stir_beaker_state["remaining_traj"] = remaining_ds
     print(f"[서버] 비커 위 도달 — SHAKE 대기 (잔여 {len(remaining_ds)}프레임)")
 
@@ -586,6 +589,7 @@ class Handler(BaseHTTPRequestHandler):
             if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
             def _stir_move_and_release():
                 global _stop_flag, _busy
+                _busy = True
                 _stop_flag = False
                 _stir_move()
                 _busy = False  # 막대 위치 도달 후 GRAB 대기 — busy 해제
@@ -601,6 +605,7 @@ class Handler(BaseHTTPRequestHandler):
             if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
             def _stir_beaker_move_and_release():
                 global _stop_flag, _busy
+                _busy = True
                 _stop_flag = False
                 _stir_beaker_move()
                 _busy = False  # 비커 위 도달 후 SHAKE 대기 — busy 해제
@@ -616,6 +621,7 @@ class Handler(BaseHTTPRequestHandler):
             if _busy: respond(self, {"ok": False, "reason": "동작 중"}); return
             def _stir_drop_move_and_release():
                 global _stop_flag, _busy
+                _busy = True
                 _stop_flag = False
                 _stir_drop_move()
                 _busy = False  # 막대 원위치 도달 후 RELEASE 대기 — busy 해제
@@ -647,6 +653,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    import socketserver
+    HTTPServer.allow_reuse_address = True
     server = HTTPServer(("0.0.0.0", 5001), Handler)
     print("=== SterileBot 서버 v2 (포트 5001) ===")
     try:    server.serve_forever()

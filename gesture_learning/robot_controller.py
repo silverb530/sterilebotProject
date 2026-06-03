@@ -7,7 +7,7 @@ import threading
 import time
 
 class RobotController:
-    def __init__(self, ip="192.168.0.30", port=5001):
+    def __init__(self, ip="192.168.0.32", port=5001):
         self.base    = f"http://{ip}:{port}"
         self.connected   = False
         self.playing     = False
