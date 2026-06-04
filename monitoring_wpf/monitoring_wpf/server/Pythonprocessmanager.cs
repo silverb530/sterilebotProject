@@ -246,7 +246,18 @@ namespace monitoring_wpf.Services
         }
 
         /// <summary>
-        /// "시작" 버튼 클릭 시 호출. Zone_tracker + gesture_control 실행.
+        /// 얼굴 인증 통과 직후 호출. gesture_control_v6 실행 → MJPEG 스트림 활성화.
+        /// </summary>
+        public void StartGesture(bool useRobot, string robotIp, int robotPort)
+        {
+            string robotArg = useRobot ? "yes" : "no";
+            Launch("gesture_control_v6.py",
+                $"--robot {robotArg} --ip {robotIp} --port {robotPort} --home no",
+                _trackingProcs);  // Learning_TWM 처럼 WPF 종료 시까지 유지
+        }
+
+        /// <summary>
+        /// "시작" 버튼 클릭 시 호출. Zone_tracker 만 실행 (gesture_control 은 이미 실행 중).
         /// </summary>
         public void StartAll(string userName, bool useRobot, string robotIp, int robotPort)
         {
@@ -255,10 +266,7 @@ namespace monitoring_wpf.Services
             Launch("Zone_tracker.py",
                 $"--robot {robotArg} --ip {robotIp} --port {robotPort}",
                 _experimentProcs);
-
-            Launch("gesture_control_v6.py",
-                $"--robot {robotArg} --ip {robotIp} --port {robotPort} --home no",
-                _experimentProcs);
+            // gesture_control_v6.py 는 OnAuthCompleted 에서 이미 실행됨 → 여기선 제거
         }
 
         private void Launch(string scriptName, string scriptArgs, List<Process> bucket)

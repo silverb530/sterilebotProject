@@ -108,6 +108,7 @@ namespace monitoring_wpf
             if (!string.IsNullOrEmpty(CalibName))
             {
                 _procMgr.StartTracking(CalibName);
+                _procMgr.StartGesture(useRobot: true, robotIp: "192.168.0.32", robotPort: 5001);
             }
             else
             {
