@@ -157,7 +157,7 @@ namespace monitoring_wpf
         private void StartExperiment()
         {
             string userName = string.IsNullOrEmpty(CalibName) ? "minjun" : CalibName;
-            _procMgr.StartAll(userName, useRobot: true, robotIp: "192.168.0.27", robotPort: 5001);
+            _procMgr.StartAll(userName, useRobot: true, robotIp: "192.168.0.32", robotPort: 5001);
             Navigate("running");
         }
 

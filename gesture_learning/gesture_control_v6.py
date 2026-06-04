@@ -541,7 +541,7 @@ def main():
     # 명령행 인자 (WPF 자동 실행용). 인자 없으면 기존 콘솔 input 방식.
     parser = argparse.ArgumentParser()
     parser.add_argument("--robot", choices=["yes", "no"], default=None)
-    parser.add_argument("--ip",   type=str, default="192.168.0.27")
+    parser.add_argument("--ip",   type=str, default="192.168.0.32")
     parser.add_argument("--port", type=int, default=5001)
     parser.add_argument("--home", choices=["yes", "no"], default="no")
     args, _ = parser.parse_known_args()
