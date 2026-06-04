@@ -15,6 +15,7 @@ import socket
 import json
 import threading
 from collections import Counter
+from mjpeg_streamer import MjpegStreamer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
@@ -278,11 +279,15 @@ def run_realtime(model):
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
 
-    # WPF 자동 실행 시 창을 화면 밖으로 숨김
+    # WPF 자동 실행 시 창을 화면 밖으로 숨기고 MJPEG 스트리밍 시작
     cv2.namedWindow("ChemiBot - Gesture Control v6", cv2.WINDOW_NORMAL)
     if _wpf_mode:
         cv2.moveWindow("ChemiBot - Gesture Control v6", -10000, -10000)
         cv2.resizeWindow("ChemiBot - Gesture Control v6", 1, 1)
+        streamer = MjpegStreamer(port=8091)
+        streamer.start()
+    else:
+        streamer = None
 
     grabbed = False
     no_hand_frames = 0
@@ -523,9 +528,13 @@ def run_realtime(model):
                 cv2.putText(frame, f"ROBOT: {status['action']}", (w-250,20), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (100,255,100), 1)
             cv2.putText(frame, f"Grip: {status['gripper']}", (w-120,h-28), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (180,180,180), 1)
 
+        if streamer:
+            streamer.update(frame)
         cv2.imshow("ChemiBot - Gesture Control v6", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
 
+    if streamer:
+        streamer.stop()
     cap.release(); cv2.destroyAllWindows()
 
 

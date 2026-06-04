@@ -15,6 +15,7 @@ namespace monitoring_wpf.Views
 
         private readonly DispatcherTimer _clock = new();
         private const int LabCamIndex = 0;
+        private const string GestureStreamUrl = "http://localhost:8091/stream";
         // ArmCamIndex(1) 는 메인 화면에서 사용 안 함.
         // Learning_TWM(시선 트래킹)이 카메라 1번을 점유하기 때문에 충돌 방지.
         // 로봇암 카메라는 RunningView 에서만 표시됨.
@@ -36,7 +37,8 @@ namespace monitoring_wpf.Views
 
                     // 카메라 0(실험실 조감캠)만 시작 — 카메라 1은 Learning_TWM 사용 중
                     LabCam.Start(cameraIndex: LabCamIndex, noSignalLabel: "조감 카메라 대기 중");
-                    // ArmCam 은 Start 호출 안 함 → "카메라 신호 없음" 으로 표시됨
+                    // ArmCam — 제스처 인식 MJPEG 스트림 (실험 시작 전엔 대기 중으로 표시)
+                    ArmCam.StartMjpeg(GestureStreamUrl, "손동작 인식 대기 중");
                 }
                 else
                 {

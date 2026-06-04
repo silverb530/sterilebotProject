@@ -27,10 +27,12 @@ namespace monitoring_wpf.Views
         // 배치도 폴링 — 1초마다 Pi /state 호출 → 시험관 현황 갱신
         private readonly DispatcherTimer _statePoll = new();
         private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
-        private const string PiBase = "http://192.168.0.32:5001";
+        private const string PiBase = "http://192.168.0.27:5001";
 
         // Zone_tracker MJPEG 스트림 URL (같은 PC면 localhost, 다른 PC면 그 IP)
         private const string ZoneTrackerStreamUrl = "http://localhost:8090/stream";
+        // 제스처 인식 MJPEG 스트림 URL
+        private const string GestureStreamUrl = "http://localhost:8091/stream";
         private const int LabCamIndex = 0;
         // ArmCamIndex 는 camera_indices.json 에서 "arm" 키로 동적으로 읽음.
         // 매핑 안 됐으면 -1 → PIP 표시 안 함.
@@ -118,7 +120,6 @@ namespace monitoring_wpf.Views
             MainCam.Stop();
             PipCam.Stop();
 
-            int armIdx = ArmCamIndex;   // 한 번만 읽어두기
             string armMissingLbl = "로봇암 카메라 미연결";
 
             if (_labIsMain)
@@ -126,25 +127,17 @@ namespace monitoring_wpf.Views
                 // 큰 화면 = Zone_tracker MJPEG 스트림
                 MainCam.StartMjpeg(ZoneTrackerStreamUrl, mainLbl + " 대기 중");
 
-                // 작은 화면 = 로봇암 카메라 (있을 때만)
-                if (armIdx >= 0)
-                    PipCam.Start(armIdx, pipLbl + " 대기 중");
-                else
-                {
-                    PipCam.Stop();
-                    pipLbl = armMissingLbl;
-                }
+                // 작은 화면 = 제스처 인식 MJPEG 스트림
+                PipCam.StartMjpeg(GestureStreamUrl, "손동작 인식 대기 중");
+                pipLbl = "손동작 인식";
             }
             else
             {
-                // 큰 화면 = USB 로봇암 (있을 때만), 작은 화면 = Zone_tracker MJPEG
-                if (armIdx >= 0)
-                    MainCam.Start(armIdx, mainLbl + " 대기 중");
-                else
-                {
-                    MainCam.Stop();
-                    mainLbl = armMissingLbl;
-                }
+                // 큰 화면 = 제스처 인식 MJPEG 스트림
+                MainCam.StartMjpeg(GestureStreamUrl, "손동작 인식 대기 중");
+                mainLbl = "손동작 인식";
+
+                // 작은 화면 = Zone_tracker MJPEG 스트림
                 PipCam.StartMjpeg(ZoneTrackerStreamUrl, pipLbl + " 대기 중");
             }
 
@@ -276,17 +269,7 @@ namespace monitoring_wpf.Views
 
         private void ResetState_Click(object s, RoutedEventArgs e) => OnResume?.Invoke();
 
-        private async void Exit_Click(object s, RoutedEventArgs e)
-        {
-            // 종료 시 Pi 로그 초기화
-            try
-            {
-                using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-                await http.GetAsync($"{PiBase}/clear_log");
-            }
-            catch { /* 실패해도 종료는 진행 */ }
-            OnExit?.Invoke();
-        }
+        private void Exit_Click(object s, RoutedEventArgs e) => OnExit?.Invoke();
 
         private async void Reset_Click(object s, RoutedEventArgs e)
         {
@@ -313,7 +296,7 @@ namespace monitoring_wpf.Views
                 {
                     Timeout = TimeSpan.FromSeconds(10)
                 };
-                var resp = await http.GetAsync("http://192.168.0.32:5001/reset");
+                var resp = await http.GetAsync("http://192.168.0.27:5001/reset");
                 string body = await resp.Content.ReadAsStringAsync();
                 System.Diagnostics.Debug.WriteLine($"[Reset] /reset 응답: {body}");
 
