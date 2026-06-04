@@ -303,7 +303,7 @@ namespace monitoring_wpf.Views
                 {
                     Timeout = TimeSpan.FromSeconds(10)
                 };
-                var resp = await http.GetAsync("http://192.168.0.27:5001/reset");
+                var resp = await http.GetAsync("http://192.168.0.32:5001/reset");
                 string body = await resp.Content.ReadAsStringAsync();
                 System.Diagnostics.Debug.WriteLine($"[Reset] /reset 응답: {body}");
 
