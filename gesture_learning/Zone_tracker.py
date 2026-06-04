@@ -14,6 +14,7 @@
 #    9003: 제스처 수신 (gesture_control_v6)
 # =============================================================
 
+import argparse
 import cv2
 import json
 import os
@@ -22,11 +23,13 @@ import time
 import socket
 import threading
 import ctypes
+from mjpeg_streamer import MjpegStreamer
 
 # ────────────────────────────────────────────────
 #  설정값
 # ────────────────────────────────────────────────
 CAMERA_INDEX    = 2
+MJPEG_PORT      = 8090
 ZONE_FILE       = "zone_data.json"
 CURSOR_PORT     = 9002
 GESTURE_PORT    = 9003
@@ -136,14 +139,34 @@ def main():
 
     zones = load_zones()
 
-    # 로봇 연결
+    # 명령행 인자 (WPF 자동 실행용). 인자 없으면 기존 콘솔 input 방식.
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--robot", choices=["yes", "no"], default=None,
+                        help="로봇 연결 여부 (WPF가 전달)")
+    parser.add_argument("--ip",   type=str, default="192.168.0.27")
+    parser.add_argument("--port", type=int, default=5001)
+    args, _ = parser.parse_known_args()
+
     robot = None
-    use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
-    if use_robot == 'y':
+    if args.robot is None:
+        # 인자 없음 → 기존 콘솔 input 방식 (수동 실행 호환)
+        use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
+        if use_robot == 'y':
+            from robot_controller import RobotController
+            ip   = input("로봇 IP (기본 192.168.0.27): ").strip() or "192.168.0.27"
+            port = input("포트 (기본 5001): ").strip() or "5001"
+            robot = RobotController(ip=ip, port=int(port))
+            if not robot.connected:
+                print("[WARN] 로봇 연결 실패 → 시뮬레이션 모드")
+                robot = None
+            else:
+                print("[ROBOT] 홈 위치로 이동 중...")
+                robot.go_home()
+        else:
+            print("[INFO] 시뮬레이션 모드")
+    elif args.robot == "yes":
         from robot_controller import RobotController
-        ip   = input("로봇 IP (기본 192.168.0.32): ").strip() or "192.168.0.32"
-        port = input("포트 (기본 5001): ").strip() or "5001"
-        robot = RobotController(ip=ip, port=int(port))
+        robot = RobotController(ip=args.ip, port=args.port)
         if not robot.connected:
             print("[WARN] 로봇 연결 실패 → 시뮬레이션 모드")
             robot = None
@@ -151,13 +174,15 @@ def main():
             print("[ROBOT] 홈 위치로 이동 중...")
             robot.go_home()
     else:
-        print("[INFO] 시뮬레이션 모드")
+        print("[INFO] 시뮬레이션 모드 (--robot no)")
 
     # 소켓 스레드 시작
     threading.Thread(target=cursor_receiver,  daemon=True).start()
     threading.Thread(target=gesture_receiver, daemon=True).start()
 
     # 웹캠
+    streamer = MjpegStreamer(port=MJPEG_PORT)
+    streamer.start()
     cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -166,7 +191,12 @@ def main():
     print(f"[INFO] 웹캠: {fw}x{fh}")
 
     cv2.namedWindow("Zone Tracker", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("Zone Tracker", fw, fh)
+    # WPF 자동 실행 시 cv2 창을 화면 밖으로 숨김 (MJPEG로 WPF에 송출하므로 불필요)
+    if args.robot is not None:
+        cv2.moveWindow("Zone Tracker", -10000, -10000)
+        cv2.resizeWindow("Zone Tracker", 1, 1)
+    else:
+        cv2.resizeWindow("Zone Tracker", fw, fh)
 
     screen_w = ctypes.windll.user32.GetSystemMetrics(0)
     screen_h = ctypes.windll.user32.GetSystemMetrics(1)
@@ -798,6 +828,7 @@ def main():
                     (10, fh-15), cv2.FONT_HERSHEY_SIMPLEX,
                     0.6, (0,255,157), 1)
 
+        streamer.update(display)
         cv2.imshow("Zone Tracker", display)
 
         key = cv2.waitKey(1) & 0xFF
@@ -815,6 +846,8 @@ def main():
                 selected_child = None
                 print("[INFO] 1단계로 복귀")
 
+
+    streamer.stop()
     cap.release()
     cv2.destroyAllWindows()
     print("[INFO] 종료")

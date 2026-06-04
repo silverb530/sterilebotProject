@@ -49,28 +49,41 @@ DWELL_ZONE     = 40
 DWELL_COOLDOWN = 2.0
 
 # 포그라운드 유지 (커서 멈춤 방지)
-FOREGROUND_INTERVAL = 2.0  # 2초마다 터미널 창을 포그라운드로
+FOREGROUND_INTERVAL = 1.0  # 1초마다 터미널 창을 포그라운드로
 
 # zone_tracker 소켓 송신
 import socket
 import json
 ZONE_TRACKER_PORT = 9002
 zone_sock = None
+_last_connect_try = 0.0
+_RECONNECT_INTERVAL = 2.0  # 연결 실패 시 2초마다 재시도
 
-def connect_zone_tracker():
+def connect_zone_tracker(verbose=True):
     global zone_sock
     try:
-        zone_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        zone_sock.connect(("127.0.0.1", ZONE_TRACKER_PORT))
-        print(f"[INFO] zone_tracker 연결됨")
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        s.connect(("127.0.0.1", ZONE_TRACKER_PORT))
+        s.settimeout(None)
+        zone_sock = s
+        if verbose:
+            print(f"[INFO] zone_tracker 연결됨")
     except:
         zone_sock = None
-        print(f"[WARN] zone_tracker 연결 실패")
+        if verbose:
+            print(f"[WARN] zone_tracker 연결 실패")
 
 def send_cursor(x, y):
-    global zone_sock
+    global zone_sock, _last_connect_try
+    # 연결 안 돼있으면 주기적으로 재연결 시도
     if zone_sock is None:
-        return
+        now = time.time()
+        if now - _last_connect_try > _RECONNECT_INTERVAL:
+            _last_connect_try = now
+            connect_zone_tracker(verbose=True)
+        if zone_sock is None:
+            return
     try:
         msg = json.dumps({"type": "CURSOR", "x": int(x), "y": int(y)}) + "\n"
         zone_sock.sendall(msg.encode())
@@ -191,13 +204,12 @@ def main():
         IsWindowVisible = ctypes.windll.user32.IsWindowVisible
         found = []
         def callback(hwnd, lparam):
-            if IsWindowVisible(hwnd):
-                length = GetWindowTextLength(hwnd)
-                if length > 0:
-                    buf = ctypes.create_unicode_buffer(length + 1)
-                    GetWindowText(hwnd, buf, length + 1)
-                    if "Zone Tracker" in buf.value:
-                        found.append(hwnd)
+            length = GetWindowTextLength(hwnd)
+            if length > 0:
+                buf = ctypes.create_unicode_buffer(length + 1)
+                GetWindowText(hwnd, buf, length + 1)
+                if "Zone Tracker" in buf.value:
+                    found.append(hwnd)
             return True
         EnumWindows(EnumWindowsProc(callback), 0)
         if found:
@@ -223,12 +235,22 @@ def main():
                 frame = cv2.flip(frame, 1)
                 now   = time.time()
 
-                # 주기적으로 Zone Tracker 창을 포그라운드로 유지
+                # 주기적으로 포그라운드 유지
+                # Zone Tracker 살아있으면 그 창, 없으면 WPF 창으로 포그라운드 유지
                 if now - last_fg_time > FOREGROUND_INTERVAL:
                     if zone_tracker_hwnd is None:
                         find_zone_tracker()
                     if zone_tracker_hwnd:
-                        ctypes.windll.user32.SetForegroundWindow(zone_tracker_hwnd)
+                        # Zone Tracker 창 포그라운드 시도
+                        ret = ctypes.windll.user32.SetForegroundWindow(zone_tracker_hwnd)
+                        if not ret:
+                            # 핸들 무효 → 초기화 후 다음 루프에서 WPF로
+                            zone_tracker_hwnd = None
+                    else:
+                        # Zone Tracker 없음 (실험 종료 후) → WPF 창 포그라운드
+                        wpf_hwnd = ctypes.windll.user32.FindWindowW(None, "SterileBot Monitor")
+                        if wpf_hwnd:
+                            ctypes.windll.user32.SetForegroundWindow(wpf_hwnd)
                     last_fg_time = now
 
                 # N프레임마다 MediaPipe 처리

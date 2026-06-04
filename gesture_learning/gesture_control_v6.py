@@ -3,6 +3,7 @@ ChemiBot — MediaPipe 손동작 제어 v6
 특징 추출(거리 기반) + ML 학습 + 실시간 추론
 """
 
+import argparse
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -241,6 +242,7 @@ def train_model(features, labels):
 #  로봇 제어
 # ══════════════════════════════════════════════════════════════════
 robot = None
+_wpf_mode = False  # WPF 자동 실행 시 True → cv2 창 숨김
 
 def robot_grip():
     if robot: robot.grip_close()
@@ -275,6 +277,12 @@ def run_realtime(model):
     cap = cv2.VideoCapture(CAMERA_ID, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
+
+    # WPF 자동 실행 시 창을 화면 밖으로 숨김
+    cv2.namedWindow("ChemiBot - Gesture Control v6", cv2.WINDOW_NORMAL)
+    if _wpf_mode:
+        cv2.moveWindow("ChemiBot - Gesture Control v6", -10000, -10000)
+        cv2.resizeWindow("ChemiBot - Gesture Control v6", 1, 1)
 
     grabbed = False
     no_hand_frames = 0
@@ -530,28 +538,59 @@ def main():
     print("  ChemiBot v6 — 손동작 제어")
     print("="*50)
 
-    use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
-    if use_robot == 'y':
+    # 명령행 인자 (WPF 자동 실행용). 인자 없으면 기존 콘솔 input 방식.
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--robot", choices=["yes", "no"], default=None)
+    parser.add_argument("--ip",   type=str, default="192.168.0.27")
+    parser.add_argument("--port", type=int, default=5001)
+    parser.add_argument("--home", choices=["yes", "no"], default="no")
+    args, _ = parser.parse_known_args()
+
+    global _wpf_mode
+    _wpf_mode = (args.robot is not None)  # WPF에서 실행 시 True
+
+    if args.robot is None:
+        # 수동 실행 → 기존 콘솔 input
+        use_robot = input("\n로봇 연결? (y/n, 기본 n): ").strip().lower()
+        if use_robot == 'y':
+            from robot_controller import RobotController
+            ip   = input("로봇 IP (기본 192.168.0.27): ").strip() or "192.168.0.27"
+            port = input("포트 (기본 5001): ").strip() or "5001"
+            robot = RobotController(ip=ip, port=int(port))
+            if robot.connected:
+                if input("홈 위치로 이동? (y/n): ").strip().lower() == 'y':
+                    robot.go_home()
+        else:
+            robot = None
+            print("[INFO] 시뮬레이션 모드")
+    elif args.robot == "yes":
         from robot_controller import RobotController
-        ip   = input("로봇 IP (기본 192.168.0.32): ").strip() or "192.168.0.32"
-        port = input("포트 (기본 5001): ").strip() or "5001"
-        robot = RobotController(ip=ip, port=int(port))
-        if robot.connected:
-            if input("홈 위치로 이동? (y/n): ").strip().lower() == 'y':
-                robot.go_home()
+        robot = RobotController(ip=args.ip, port=args.port)
+        if robot.connected and args.home == "yes":
+            robot.go_home()
+        if not robot.connected:
+            robot = None
+            print("[WARN] 로봇 연결 실패 → 시뮬레이션 모드")
     else:
         robot = None
-        print("[INFO] 시뮬레이션 모드")
+        print("[INFO] 시뮬레이션 모드 (--robot no)")
 
     # zone_tracker 연결
     connect_zone_tracker()
 
+    # 모델 로드: WPF 자동 실행 시 기존 모델 무조건 로드 (input 없이)
     model = None
     if os.path.exists(MODEL_PATH):
-        print(f"\n[모델] 기존 파일: {MODEL_PATH}")
-        if input("기존 모델 사용? (y/n): ").strip().lower() == 'y':
+        if args.robot is None:
+            # 수동: 물어봄
+            print(f"\n[모델] 기존 파일: {MODEL_PATH}")
+            if input("기존 모델 사용? (y/n): ").strip().lower() == 'y':
+                with open(MODEL_PATH, "rb") as f: model = pickle.load(f)
+                print(f"[INFO] 로드 완료: {list(model.classes_)}")
+        else:
+            # 자동: 무조건 로드
             with open(MODEL_PATH, "rb") as f: model = pickle.load(f)
-            print(f"[INFO] 로드 완료: {list(model.classes_)}")
+            print(f"[INFO] 모델 자동 로드: {list(model.classes_)}")
 
     if model is None:
         print(f"\n[학습] {len(GESTURES)}개 x {SAMPLES_PER_GESTURE}개 수집")

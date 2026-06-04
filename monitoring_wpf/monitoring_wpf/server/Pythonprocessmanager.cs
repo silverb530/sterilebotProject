@@ -21,6 +21,7 @@ namespace monitoring_wpf.Services
             "Learning_TWM.py",
             "Zone_tracker.py",
             "gesture_control_v6.py",
+            "app.py",
         };
 
         // 트래킹 프로세스 (Learning_TWM) — WPF 종료 시까지 유지
@@ -30,6 +31,8 @@ namespace monitoring_wpf.Services
 
         // gesture_learning 폴더 경로 (실행 시 자동 탐색)
         private static readonly string GestureDir = ResolveGestureDir();
+        // server 폴더 경로 (실행 시 자동 탐색)
+        private static readonly string ServerDir = ResolveServerDir();
 
         // 생성 시 — 이전 세션에서 살아남은 우리 Python 좀비 자동 청소
         // (이전 WPF 가 비정상 종료되었거나, Kill 이 실패한 경우 대비)
@@ -130,6 +133,95 @@ namespace monitoring_wpf.Services
                 "경로 설정 오류",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             return "";
+        }
+
+        /// <summary>
+        /// exe 위치에서 부모 폴더로 올라가며 server/app.py 를 찾음.
+        /// </summary>
+        private static string ResolveServerDir()
+        {
+            var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+            while (dir != null)
+            {
+                var candidate = Path.Combine(dir.FullName, "server");
+                if (Directory.Exists(candidate) &&
+                    File.Exists(Path.Combine(candidate, "app.py")))
+                {
+                    return candidate;
+                }
+                dir = dir.Parent;
+            }
+            Debug.WriteLine("[PythonProcessManager] server/app.py 를 찾을 수 없음 (무시)");
+            return "";
+        }
+
+        private static string ServerPythonExe
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(ServerDir)) return "py";
+                string venv = Path.Combine(ServerDir, ".venv", "Scripts", "python.exe");
+                if (File.Exists(venv)) return venv;
+                return "py";
+            }
+        }
+
+        /// <summary>
+        /// WPF 시작 시 Flask 서버(app.py) 자동 실행.
+        /// </summary>
+        public void StartFlaskServer()
+        {
+            if (string.IsNullOrEmpty(ServerDir))
+            {
+                Debug.WriteLine("[PythonProcessManager] server 폴더 없음 — Flask 자동 실행 건너뜀");
+                return;
+            }
+
+            string scriptPath = Path.Combine(ServerDir, "app.py");
+            if (!File.Exists(scriptPath))
+            {
+                Debug.WriteLine("[PythonProcessManager] app.py 없음 — Flask 자동 실행 건너뜀");
+                return;
+            }
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "py",
+                    Arguments = $"-3.11 -u \"{scriptPath}\"",
+                    WorkingDirectory = ServerDir,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    StandardOutputEncoding = System.Text.Encoding.UTF8,
+                    StandardErrorEncoding = System.Text.Encoding.UTF8,
+                };
+                psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+                psi.EnvironmentVariables["PYTHONUTF8"] = "1";
+                psi.EnvironmentVariables["FLASK_DEBUG"] = "0";  // reloader 비활성화 → 단일 프로세스로 실행
+
+                var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
+                p.OutputDataReceived += (_, e) =>
+                {
+                    if (e.Data != null) Debug.WriteLine($"[app.py] {e.Data}");
+                };
+                p.ErrorDataReceived += (_, e) =>
+                {
+                    if (e.Data != null) Debug.WriteLine($"[app.py][ERR] {e.Data}");
+                };
+
+                p.Start();
+                p.BeginOutputReadLine();
+                p.BeginErrorReadLine();
+                _trackingProcs.Add(p);  // WPF 종료 시 함께 정리
+                Debug.WriteLine("[PythonProcessManager] Flask 서버 시작됨");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[PythonProcessManager] Flask 시작 실패: {ex.Message}");
+            }
         }
 
         private static string PythonExe

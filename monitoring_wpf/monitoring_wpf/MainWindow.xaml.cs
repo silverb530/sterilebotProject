@@ -35,6 +35,7 @@ namespace monitoring_wpf
             //       같이 죽이는 부작용이 있어서 사용 안 함.
             //       좀비가 쌓이면 PowerShell 에서 taskkill /F /IM python.exe 수동 사용.
             SetupFlask();
+            _procMgr.StartFlaskServer();  // Flask 서버 자동 시작 (app.py)
 
             // Wire navigation callbacks
             ViewFaceAuth.OnAuthComplete = OnAuthCompleted;
@@ -150,15 +151,13 @@ namespace monitoring_wpf
             return "";
         }
 
-        // "시작" 클릭: 팝업에 영문 캘리브명 자동 채워짐 → 시선으로 시작 버튼 Dwell 클릭
+        // "시작" 클릭: 팝업 없이 자동 시작
+        //  - 사용자 이름: 얼굴 인증에서 매핑된 CalibName 사용
+        //  - 로봇: 항상 연결 (useRobot = true)
         private void StartExperiment()
         {
-            // 팝업 기본값으로 영문 캘리브명 전달
-            var dlg = new StartupDialog(CalibName) { Owner = this };
-            bool? ok = dlg.ShowDialog();
-            if (ok != true) return;
-
-            _procMgr.StartAll(dlg.UserName, dlg.UseRobot, dlg.RobotIp, dlg.RobotPort);
+            string userName = string.IsNullOrEmpty(CalibName) ? "minjun" : CalibName;
+            _procMgr.StartAll(userName, useRobot: true, robotIp: "192.168.0.27", robotPort: 5001);
             Navigate("running");
         }
 
