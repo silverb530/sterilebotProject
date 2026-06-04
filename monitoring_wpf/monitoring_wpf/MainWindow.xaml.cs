@@ -56,9 +56,12 @@ namespace monitoring_wpf
 
                 // 창이 닫혔으면 → 실험 종료 진행
                 _ventWindow = null;
-                // 실험 종료: Zone_tracker, gesture_control 만 종료.
-                // Learning_TWM(시선 트래킹) 은 계속 작동하므로 커서도 그대로.
+                // 실험 종료: Zone_tracker 만 종료.
+                // Learning_TWM, gesture_control(시선/제스처 트래킹) 은 계속 작동.
                 _procMgr.StopExperiment();
+                // Pi 로그 초기화 (다음 실험을 위해)
+                _ = new HttpClient { Timeout = TimeSpan.FromSeconds(3) }
+                    .GetAsync("http://192.168.0.32:5001/clear_log");
                 Navigate("main");
             };
 
