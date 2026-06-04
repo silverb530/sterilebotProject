@@ -27,7 +27,7 @@ namespace monitoring_wpf.Views
         // 배치도 폴링 — 1초마다 Pi /state 호출 → 시험관 현황 갱신
         private readonly DispatcherTimer _statePoll = new();
         private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
-        private const string PiBase = "http://192.168.0.27:5001";
+        private const string PiBase = "http://192.168.0.32:5001";
 
         // Zone_tracker MJPEG 스트림 URL (같은 PC면 localhost, 다른 PC면 그 IP)
         private const string ZoneTrackerStreamUrl = "http://localhost:8090/stream";
@@ -296,7 +296,7 @@ namespace monitoring_wpf.Views
                 {
                     Timeout = TimeSpan.FromSeconds(10)
                 };
-                var resp = await http.GetAsync("http://192.168.0.27:5001/reset");
+                var resp = await http.GetAsync("http://192.168.0.32:5001/reset");
                 string body = await resp.Content.ReadAsStringAsync();
                 System.Diagnostics.Debug.WriteLine($"[Reset] /reset 응답: {body}");
 
@@ -311,7 +311,7 @@ namespace monitoring_wpf.Views
             catch (Exception ex)
             {
                 MessageBox.Show($"리셋 요청 전송 실패: {ex.Message}\n\n" +
-                                "Pi 서버(192.168.0.27:5001)가 켜져 있는지 확인하세요.",
+                                "Pi 서버(192.168.0.32:5001)가 켜져 있는지 확인하세요.",
                                 "리셋 오류",
                                 MessageBoxButton.OK,
                                 MessageBoxImage.Error);
