@@ -276,7 +276,17 @@ namespace monitoring_wpf.Views
 
         private void ResetState_Click(object s, RoutedEventArgs e) => OnResume?.Invoke();
 
-        private void Exit_Click(object s, RoutedEventArgs e) => OnExit?.Invoke();
+        private async void Exit_Click(object s, RoutedEventArgs e)
+        {
+            // 종료 시 Pi 로그 초기화
+            try
+            {
+                using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                await http.GetAsync($"{PiBase}/clear_log");
+            }
+            catch { /* 실패해도 종료는 진행 */ }
+            OnExit?.Invoke();
+        }
 
         private async void Reset_Click(object s, RoutedEventArgs e)
         {
