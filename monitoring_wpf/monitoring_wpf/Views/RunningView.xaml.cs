@@ -27,7 +27,7 @@ namespace monitoring_wpf.Views
         // 배치도 폴링 — 1초마다 Pi /state 호출 → 시험관 현황 갱신
         private readonly DispatcherTimer _statePoll = new();
         private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
-        private const string PiBase = "http://192.168.0.27:5001";
+        private const string PiBase = "http://192.168.0.32:5001";
 
         // Zone_tracker MJPEG 스트림 URL (같은 PC면 localhost, 다른 PC면 그 IP)
         private const string ZoneTrackerStreamUrl = "http://localhost:8090/stream";
