@@ -42,6 +42,32 @@ namespace monitoring_wpf.Services
         [JsonPropertyName("user")]         public string User        { get; set; } = "김수영 연구원";
     }
 
+    public class UsageLog
+    {
+        [JsonPropertyName("id")]         public int    Id         { get; set; }
+        [JsonPropertyName("date")]       public string Date       { get; set; } = "";
+        [JsonPropertyName("researcher")] public string Researcher { get; set; } = "";
+        [JsonPropertyName("start")]      public string Start      { get; set; } = "";
+        [JsonPropertyName("end")]        public string End        { get; set; } = "";
+        [JsonPropertyName("status")]     public string Status     { get; set; } = "";
+
+        // 소요 시간 (분) — Start/End 계산
+        public string Duration
+        {
+            get
+            {
+                try
+                {
+                    var s = Start.Split(':'); var e = End.Split(':');
+                    int dur = (int.Parse(e[0]) * 60 + int.Parse(e[1]))
+                            - (int.Parse(s[0]) * 60 + int.Parse(s[1]));
+                    return dur + "분";
+                }
+                catch { return "-"; }
+            }
+        }
+    }
+
     public class FlaskClient : IDisposable
     {
         private readonly HttpClient _http;
@@ -98,6 +124,16 @@ namespace monitoring_wpf.Services
         public Task GoHomeAsync() => PostAsync("/api/home", new { });
         public Task SetGripperAsync(bool open) => PostAsync("/api/gripper", new { state = open ? "open" : "closed" });
         public Task ToggleGazeAsync() => PostAsync("/api/gaze_toggle", new { });
+
+        public async Task<List<UsageLog>> GetUsageLogsAsync()
+        {
+            try
+            {
+                var json = await _http.GetStringAsync($"{_base}/api/usage");
+                return JsonSerializer.Deserialize<List<UsageLog>>(json) ?? new();
+            }
+            catch { return new List<UsageLog>(); }
+        }
 
         private async Task PostAsync(string path, object body)
         {

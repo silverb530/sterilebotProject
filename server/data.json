@@ -30,7 +30,7 @@
     },
     {
       "id": 6,
-      "name": "김재니",
+      "name": "염재니",
       "role": "연구원",
       "face_registered": true,
       "created": "2026-05-21"
@@ -140,7 +140,7 @@
     }
   ],
   "settings": {
-    "robot_ip": "192.168.0.20",
+    "robot_ip": "192.168.0.32",
     "socket_port": "9001",
     "flask_port": "5000",
     "gas_warn": "100",

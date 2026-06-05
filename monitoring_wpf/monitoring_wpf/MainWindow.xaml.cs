@@ -157,8 +157,11 @@ namespace monitoring_wpf
         //  - 로봇: 항상 연결 (useRobot = true)
         private void StartExperiment()
         {
-            string userName = string.IsNullOrEmpty(CalibName) ? "minjun" : CalibName;
-            _procMgr.StartAll(userName, useRobot: true, robotIp: "192.168.0.32", robotPort: 5001);
+            string defaultName = string.IsNullOrEmpty(CalibName) ? "" : CalibName;
+            var dlg = new StartupDialog(defaultName);
+            if (dlg.ShowDialog() != true) return;  // 취소 시 아무것도 안 함
+
+            _procMgr.StartAll(dlg.UserName, useRobot: dlg.UseRobot, robotIp: dlg.RobotIp, robotPort: dlg.RobotPort);
             Navigate("running");
         }
 

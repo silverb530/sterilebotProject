@@ -2,7 +2,6 @@ import { C } from "../styles";
 const ITEMS = [
   { key:"dashboard",   icon:"📊", label:"대시보드" },
   { key:"researchers", icon:"👥", label:"연구원 관리" },
-  { key:"usage",       icon:"📋", label:"실험 이력" },
   { key:"settings",    icon:"⚙️", label:"시스템 설정" },
 ];
 export default function Sidebar({ tab, setTab }) {

@@ -245,7 +245,7 @@ def register_face(rid):
 _face_buf = []           # [(timestamp, matched_id, distance), ...]
 _face_fail_count = 0     # 연속 미매칭 횟수
 _face_buf_lock = threading.Lock()
-FACE_REQUIRED   = 3      # 3회 일치 시 인증
+FACE_REQUIRED   = 1      # 1회 일치 시 인증
 FACE_WINDOW     = 5      # 최근 5회 시도 내에서 판정
 FACE_WINDOW_SEC = 8.0    # 8초 이내 결과만 유효
 FACE_THRESHOLD  = 0.4    # distance 기준
@@ -269,21 +269,11 @@ def face_login():
 
     # 얼굴 벡터 추출 (전처리 + 정밀 인코딩)
     try:
-        img = face_recognition.load_image_file(io.BytesIO(img_bytes))
-        print(f"[DEBUG] img shape={img.shape}, dtype={img.dtype}")
-        # 이미지 전처리: 밝기/대비 자동 보정 (CLAHE)
-        img_bgr = cv2.imdecode(
-            np.frombuffer(img_bytes, dtype=np.uint8), cv2.IMREAD_COLOR
-        )
-        if img_bgr is not None:
-            lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
-            l, a, b = cv2.split(lab)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            l = clahe.apply(l)
-            lab = cv2.merge([l, a, b])
-            img = cv2.cvtColor(
-                cv2.cvtColor(lab, cv2.COLOR_LAB2BGR), cv2.COLOR_BGR2RGB
-            )
+        # PIL로 로드 — face_recognition이 PIL 기반이라 가장 안정적
+        from PIL import Image as _PILImage
+        pil_img = _PILImage.open(io.BytesIO(img_bytes)).convert('RGB')
+        img = np.array(pil_img, dtype=np.uint8)
+        print(f"[DEBUG] img shape={img.shape}, dtype={img.dtype}, contiguous={img.flags['C_CONTIGUOUS']}")
 
         # 얼굴 위치 검출 (HOG: 빠름, upsample=1로 속도 유지)
         face_locations = face_recognition.face_locations(img, model="hog",

@@ -98,5 +98,12 @@ namespace monitoring_wpf.Views
         private void DriveTest_Click(object s, RoutedEventArgs e) => OnDriveTest?.Invoke();
         private void Start_Click(object s, RoutedEventArgs e) => OnStart?.Invoke();
         private void Exit_Click(object s, RoutedEventArgs e) => OnExit?.Invoke();
+
+        private void History_Click(object s, RoutedEventArgs e)
+        {
+            var dlg = new HistoryDialog();
+            dlg.Owner = System.Windows.Window.GetWindow(this);
+            dlg.ShowDialog();
+        }
     }
 }

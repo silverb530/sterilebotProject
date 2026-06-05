@@ -70,6 +70,7 @@ namespace monitoring_wpf.Views
         }
 
         private bool _labIsMain = true;
+        private bool _isDoorLocked = false;
 
         public RunningView()
         {
@@ -268,6 +269,27 @@ namespace monitoring_wpf.Views
         }
 
         private void ResetState_Click(object s, RoutedEventArgs e) => OnResume?.Invoke();
+
+        private void DoorLock_Click(object s, RoutedEventArgs e)
+        {
+            _isDoorLocked = !_isDoorLocked;
+            if (BtnDoorLock.Template.FindName("t", BtnDoorLock) is System.Windows.Controls.TextBlock tb)
+            {
+                tb.Text = _isDoorLocked ? "🔒  외부문 잠금" : "🔓  외부문 잠금해제";
+                tb.Foreground = _isDoorLocked
+                    ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDC, 0x26, 0x26))
+                    : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x16, 0xA3, 0x4A));
+            }
+            if (BtnDoorLock.Parent is System.Windows.Controls.Border parent)
+            {
+                parent.Background = _isDoorLocked
+                    ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFE, 0xF2, 0xF2))
+                    : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF0, 0xFD, 0xF4));
+                parent.BorderBrush = _isDoorLocked
+                    ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFC, 0xA5, 0xA5))
+                    : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x86, 0xEF, 0xAC));
+            }
+        }
 
         private async void Exit_Click(object s, RoutedEventArgs e)
         {

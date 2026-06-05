@@ -3,7 +3,6 @@ import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import Dashboard from "./components/Dashboard";
 import Researchers from "./components/Researchers";
-import Usage from "./components/Usage";
 import Settings from "./components/Settings";
 
 export default function App() {
@@ -11,7 +10,6 @@ export default function App() {
   const pages = {
     dashboard: <Dashboard />,
     researchers: <Researchers />,
-    usage: <Usage />,
     settings: <Settings />,
   };
   return (

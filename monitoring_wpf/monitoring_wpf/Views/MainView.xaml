@@ -161,6 +161,8 @@
                             VerticalAlignment="Center" Margin="16,0,0,0">
                     <Button Content="구동 테스트" Style="{StaticResource NavyOutlineBtn}"
                             Margin="0,0,10,0" Click="DriveTest_Click"/>
+                    <Button Content="실험 이력" Style="{StaticResource NavyOutlineBtn}"
+                            Margin="0,0,10,0" Click="History_Click"/>
                     <Button Content="시  작" Style="{StaticResource NavyFilledBtn}"
                             Margin="0,0,10,0" Click="Start_Click"/>
                     <Button Content="로그아웃" Style="{StaticResource NavyOutlineBtn}"

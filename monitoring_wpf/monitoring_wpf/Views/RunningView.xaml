@@ -42,7 +42,7 @@
                     </Border>
                     <Border Background="#2A4F7A" CornerRadius="4" Padding="7,3">
                         <TextBlock Text="ESC" FontFamily="Segoe UI Mono" FontSize="10"
-                                   Foreground="#94A3B8"/>
+                                   Foreground="#94A3B8" Height="14"/>
                     </Border>
                 </StackPanel>
 
@@ -301,326 +301,338 @@
                 <Border.Effect>
                     <DropShadowEffect Color="#1E3A5F" BlurRadius="12" ShadowDepth="0" Opacity="0.08"/>
                 </Border.Effect>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="0,8,0,8">
+                <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                    <StackPanel Margin="0,3,0,3">
 
-                    <!-- 비상정지 버튼 -->
-                    <Border x:Name="EstopBorder" Margin="12,8,12,6" CornerRadius="8"
+                        <!-- 비상정지 버튼 -->
+                        <Border x:Name="EstopBorder" Margin="12,3,12,3" CornerRadius="8"
                             Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1.5"
-                            Cursor="Hand" Height="54"
+                            Cursor="Hand" Height="32"
                             MouseLeftButtonDown="EmergencyStop_Click">
-                        <Border.Effect>
-                            <DropShadowEffect Color="#DC2626" BlurRadius="8" ShadowDepth="0" Opacity="0.12"/>
-                        </Border.Effect>
-                        <StackPanel Orientation="Horizontal"
+                            <Border.Effect>
+                                <DropShadowEffect Color="#DC2626" BlurRadius="8" ShadowDepth="0" Opacity="0.12"/>
+                            </Border.Effect>
+                            <StackPanel Orientation="Horizontal"
                                     HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock x:Name="EstopIcon" Text="⚠" FontSize="16"
-                                       Foreground="#DC2626" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="EstopLabel" Text="비상 정지"
+                                <TextBlock x:Name="EstopIcon" Text="⚠" FontSize="13"
+                                       Foreground="#DC2626" Margin="0,0,8,0" VerticalAlignment="Center" Height="22" Width="16"/>
+                                <TextBlock x:Name="EstopLabel" Text="비상 정지"
                                        FontFamily="Segoe UI" FontSize="14" FontWeight="SemiBold"
                                        Foreground="#DC2626" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
+                            </StackPanel>
+                        </Border>
 
-                    <!-- 일시정지 버튼 -->
-                    <Border Margin="12,4,12,4" CornerRadius="8"
+                        <!-- 일시정지 버튼 -->
+                        <Border Margin="12,2,12,2" CornerRadius="8"
                             Background="#F0F6FF" BorderBrush="#CBD5E1" BorderThickness="1"
-                            Height="46">
-                        <Button x:Name="PauseResumeBtn" Background="Transparent" BorderThickness="0"
-                                Height="46" Cursor="Hand" Click="PauseResume_Click">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bd" CornerRadius="8"
+                            Height="32">
+                            <Button x:Name="PauseResumeBtn" Background="Transparent" BorderThickness="0"
+                                Height="32" Cursor="Hand" Click="PauseResume_Click" Margin="0,-1,0,-1">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="8"
                                             Background="{TemplateBinding Background}">
-                                        <TextBlock x:Name="t" Text="⏸  일시 정지"
+                                            <TextBlock x:Name="t" Text="⏸  일시 정지"
                                                    FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold"
                                                    Foreground="#475569"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="bd" Property="Background" Value="#DBEAFE"/>
-                                            <Setter TargetName="t"  Property="Foreground"  Value="#1D4ED8"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </Border>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#DBEAFE"/>
+                                                <Setter TargetName="t"  Property="Foreground"  Value="#1D4ED8"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Border>
 
-                    <!-- 종료 버튼 -->
-                    <Border Margin="12,4,12,4" CornerRadius="8"
+                        <!-- 종료 버튼 -->
+                        <Border Margin="12,2,12,2" CornerRadius="8"
                             Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1"
-                            Height="46">
-                        <Button Background="Transparent" BorderThickness="0"
-                                Height="46" Cursor="Hand" Click="Exit_Click">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bd" CornerRadius="8"
+                            Height="32">
+                            <Button Background="Transparent" BorderThickness="0"
+                                Height="32" Cursor="Hand" Click="Exit_Click">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="8"
                                             Background="{TemplateBinding Background}">
-                                        <TextBlock x:Name="t" Text="■  종료"
+                                            <TextBlock x:Name="t" Text="■  종료"
                                                    FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold"
                                                    Foreground="#475569"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="bd" Property="Background" Value="#F1F5F9"/>
-                                            <Setter TargetName="t"  Property="Foreground"  Value="#1E293B"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </Border>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#F1F5F9"/>
+                                                <Setter TargetName="t"  Property="Foreground"  Value="#1E293B"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Border>
 
-                    <!-- 리셋 버튼 -->
-                    <Border Margin="12,4,12,4" CornerRadius="8"
+                        <!-- 리셋 버튼 -->
+                        <Border Margin="12,2,12,2" CornerRadius="8"
                             Background="#EFF6FF" BorderBrush="#93C5FD" BorderThickness="1"
-                            Height="46">
-                        <Button Background="Transparent" BorderThickness="0"
-                                Height="46" Cursor="Hand" Click="Reset_Click">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bd" CornerRadius="8"
+                            Height="32">
+                            <Button Background="Transparent" BorderThickness="0"
+                                Height="32" Cursor="Hand" Click="Reset_Click">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="8"
                                             Background="{TemplateBinding Background}">
-                                        <TextBlock x:Name="t" Text="↺  리셋"
+                                            <TextBlock x:Name="t" Text="↺  리셋"
                                                    FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold"
                                                    Foreground="#2563EB"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="bd" Property="Background" Value="#DBEAFE"/>
-                                            <Setter TargetName="t"  Property="Foreground"  Value="#1D4ED8"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </Border>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#DBEAFE"/>
+                                                <Setter TargetName="t"  Property="Foreground"  Value="#1D4ED8"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Border>
 
-                    <!-- 구분선 -->
-                    <Border Height="1" Background="#E2E8F0" Margin="12,10,12,10"/>
+                        <!-- 외부문 잠금 토글 버튼 -->
+                        <Border Margin="12,2,12,2" CornerRadius="8"
+                            Background="#F0FDF4" BorderBrush="#86EFAC" BorderThickness="1"
+                            Height="32">
+                            <Button x:Name="BtnDoorLock" Background="Transparent" BorderThickness="0"
+                                Height="32" Cursor="Hand" Click="DoorLock_Click">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd" CornerRadius="8" Background="{TemplateBinding Background}">
+                                            <TextBlock x:Name="t" Text="🔓  외부문 잠금해제"
+                                                   FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="#16A34A"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Border>
 
-                    <!-- 환경 센서 레이블 -->
-                    <TextBlock Text="환경 센서" FontFamily="Segoe UI" FontSize="11"
-                               Foreground="#64748B" Margin="16,0,0,10" FontWeight="SemiBold"/>
+                        <!-- 구분선 -->
+                        <Border Height="1" Background="#E2E8F0" Margin="12,2,12,2"/>
 
-                    <!-- 가스 농도 -->
-                    <Border Margin="12,3,12,3" Background="#F8FAFC"
+                        <!-- 환경 센서 레이블 -->
+                        <TextBlock Text="환경 센서" FontFamily="Segoe UI" FontSize="11"
+                               Foreground="#64748B" Margin="14,0,0,4" FontWeight="SemiBold"/>
+
+                        <!-- 가스 농도 -->
+                        <Border Margin="12,3,12,3" Background="#F8FAFC"
                             BorderBrush="#E2E8F0" BorderThickness="1"
-                            CornerRadius="7" Padding="14,10">
-                        <Grid>
-                            <TextBlock Text="가스 농도"
+                            CornerRadius="7" Padding="10,5">
+                            <Grid>
+                                <TextBlock Text="가스 농도"
                                        FontFamily="Segoe UI" FontSize="12"
                                        Foreground="#64748B" HorizontalAlignment="Left"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <TextBlock x:Name="GasVal" Text="—"
-                                           FontFamily="Segoe UI" FontSize="15" FontWeight="Bold"
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock x:Name="GasVal" Text="—"
+                                           FontFamily="Segoe UI" FontSize="13" FontWeight="Bold"
                                            Foreground="#1E293B"/>
-                                <TextBlock Text=" ppm" FontFamily="Segoe UI" FontSize="11"
+                                    <TextBlock Text=" ppm" FontFamily="Segoe UI" FontSize="11"
                                            Foreground="#94A3B8" VerticalAlignment="Bottom" Margin="0,0,0,1"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
 
-                    <!-- 온도 -->
-                    <Border Margin="12,3,12,3" Background="#F8FAFC"
+                        <!-- 온도 -->
+                        <Border Margin="12,3,12,3" Background="#F8FAFC"
                             BorderBrush="#E2E8F0" BorderThickness="1"
-                            CornerRadius="7" Padding="14,10">
-                        <Grid>
-                            <TextBlock Text="온도"
+                            CornerRadius="7" Padding="10,5">
+                            <Grid>
+                                <TextBlock Text="온도"
                                        FontFamily="Segoe UI" FontSize="12"
                                        Foreground="#64748B" HorizontalAlignment="Left"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <TextBlock x:Name="TempVal" Text="—"
-                                           FontFamily="Segoe UI" FontSize="15" FontWeight="Bold"
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock x:Name="TempVal" Text="—"
+                                           FontFamily="Segoe UI" FontSize="13" FontWeight="Bold"
                                            Foreground="#1E293B"/>
-                                <TextBlock Text=" °C" FontFamily="Segoe UI" FontSize="11"
+                                    <TextBlock Text=" °C" FontFamily="Segoe UI" FontSize="11"
                                            Foreground="#94A3B8" VerticalAlignment="Bottom" Margin="0,0,0,1"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
 
-                    <!-- 습도 -->
-                    <Border Margin="12,3,12,12" Background="#F8FAFC"
+                        <!-- 습도 -->
+                        <Border Margin="12,2,12,2" Background="#F8FAFC"
                             BorderBrush="#E2E8F0" BorderThickness="1"
-                            CornerRadius="7" Padding="14,10">
-                        <Grid>
-                            <TextBlock Text="습도"
+                            CornerRadius="7" Padding="10,5">
+                            <Grid>
+                                <TextBlock Text="습도"
                                        FontFamily="Segoe UI" FontSize="12"
                                        Foreground="#64748B" HorizontalAlignment="Left"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <TextBlock x:Name="HumVal" Text="—"
-                                           FontFamily="Segoe UI" FontSize="15" FontWeight="Bold"
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock x:Name="HumVal" Text="—"
+                                           FontFamily="Segoe UI" FontSize="13" FontWeight="Bold"
                                            Foreground="#1E293B"/>
-                                <TextBlock Text=" %" FontFamily="Segoe UI" FontSize="11"
+                                    <TextBlock Text=" %" FontFamily="Segoe UI" FontSize="11"
                                            Foreground="#94A3B8" VerticalAlignment="Bottom" Margin="0,0,0,1"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
 
-                    <!-- 안전 상태 칩 -->
-                    <Border x:Name="StatusChip" Margin="12,0,12,0"
+                        <!-- 안전 상태 칩 -->
+                        <Border x:Name="StatusChip" Margin="12,2,12,2"
                             Background="#DCFCE7" BorderBrush="#86EFAC" BorderThickness="1"
-                            CornerRadius="7" Padding="14,10">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <Ellipse x:Name="SafetyDot" Width="8" Height="8" Fill="#16A34A"
+                            CornerRadius="7" Padding="10,5">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Ellipse x:Name="SafetyDot" Width="8" Height="8" Fill="#16A34A"
                                      VerticalAlignment="Center" Margin="0,0,7,0"/>
-                            <TextBlock x:Name="StatusLabel" Text="안전"
+                                <TextBlock x:Name="StatusLabel" Text="안전"
                                        FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold"
                                        Foreground="#15803D"/>
-                        </StackPanel>
-                    </Border>
+                            </StackPanel>
+                        </Border>
 
-                    <!-- 구분선 -->
-                    <Border Height="1" Background="#E2E8F0" Margin="12,10,12,10"/>
+                        <!-- 구분선 -->
+                        <Border Height="1" Background="#E2E8F0" Margin="12,4,12,4"/>
 
-                    <!-- 현재 작업 상태 -->
-                    <TextBlock Text="현재 작업 상태" FontFamily="Segoe UI" FontSize="11"
-                               Foreground="#64748B" Margin="16,0,0,6" FontWeight="SemiBold"/>
-                    <Border Margin="12,0,12,10" Background="#F8FAFC"
+                        <!-- 현재 작업 상태 -->
+                        <TextBlock Text="현재 작업 상태" FontFamily="Segoe UI" FontSize="11"
+                               Foreground="#64748B" Margin="14,0,0,3" FontWeight="SemiBold"/>
+                        <Border Margin="12,2,12,3" Background="#F8FAFC"
                             BorderBrush="#E2E8F0" BorderThickness="1"
-                            CornerRadius="7" Padding="14,10">
-                        <StackPanel>
-                            <TextBlock x:Name="WorkStatusText" Text="대기 중"
+                            CornerRadius="7" Padding="10,5">
+                            <StackPanel>
+                                <TextBlock x:Name="WorkStatusText" Text="대기 중"
                                        FontFamily="Segoe UI" FontSize="13" FontWeight="SemiBold"
                                        Foreground="#1E293B" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="WorkStatusSub" Text="—"
+                                <TextBlock x:Name="WorkStatusSub" Text="—"
                                        FontFamily="Segoe UI" FontSize="11"
                                        Foreground="#64748B" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
+                            </StackPanel>
+                        </Border>
 
-                    <!-- 구분선 -->
-                    <Border Height="1" Background="#E2E8F0" Margin="12,0,12,6"/>
+                        <!-- 구분선 -->
+                        <Border Height="1" Background="#E2E8F0" Margin="12,0,12,6"/>
 
-                    <!-- 실험실 배치도 -->
-                    <TextBlock Text="실험실 배치도" FontFamily="Segoe UI" FontSize="11"
-                               Foreground="#64748B" Margin="16,0,0,6" FontWeight="SemiBold"/>
+                        <!-- 실험실 배치도 -->
+                        <TextBlock Text="실험실 배치도" FontFamily="Segoe UI" FontSize="11"
+                               Foreground="#64748B" Margin="14,0,0,3" FontWeight="SemiBold"/>
 
-                    <Border Margin="12,0,12,8" Background="#F8FAFC"
+                        <Border Margin="12,0,12,4" Background="#F8FAFC"
                             BorderBrush="#E2E8F0" BorderThickness="1"
                             CornerRadius="7" Padding="4">
-                        <Viewbox Stretch="Uniform">
-                            <Canvas Width="280" Height="290">
+                            <Viewbox Stretch="Uniform">
+                                <Canvas Width="300" Height="280">
 
-                                <!-- ══ A 라벨 ══ -->
-                                <TextBlock Canvas.Left="166" Canvas.Top="16" Text="시약대"
-                                           FontFamily="Segoe UI" FontSize="14" FontWeight="Bold" Foreground="#1E293B"/>
-                                <!-- A 거치대 배경 -->
-                                <Border Canvas.Left="120" Canvas.Top="38" Width="150" Height="38"
-                                        Background="#BFDBFE" CornerRadius="5"
-                                        BorderBrush="#93C5FD" BorderThickness="1"/>
-                                <Grid Canvas.Left="124" Canvas.Top="41" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotSyak1" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="1" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
+                                    <!-- ══ 시약대 (상단 우측 수평) ══ -->
+                                    <TextBlock Canvas.Left="180" Canvas.Top="19" Text="시약대"
+                                           FontFamily="Segoe UI" FontSize="12" FontWeight="Bold" Foreground="#1E293B" RenderTransformOrigin="0.751,-0.392"/>
+                                    <Border Canvas.Left="128" Canvas.Top="35" Width="140" Height="38"
+                                        Background="#BFDBFE" CornerRadius="5" BorderBrush="#93C5FD" BorderThickness="1"/>
+                                    <Grid Canvas.Left="134" Canvas.Top="40" Width="28" Height="28">
+                                        <Ellipse Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="1" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <Grid Canvas.Left="160" Canvas.Top="41" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotSyak2" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="2" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
+                                    </Grid>
+                                    <Grid Canvas.Left="166" Canvas.Top="40" Width="28" Height="28">
+                                        <Ellipse Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="2" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <Grid Canvas.Left="196" Canvas.Top="41" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotSyak3" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="3" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
+                                    </Grid>
+                                    <Grid Canvas.Left="198" Canvas.Top="40" Width="28" Height="28">
+                                        <Ellipse Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="3" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <Grid Canvas.Left="232" Canvas.Top="41" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotSyak4" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="4" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
+                                    </Grid>
+                                    <Grid Canvas.Left="230" Canvas.Top="40" Width="28" Height="28">
+                                        <Ellipse Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="4" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
+                                    </Grid>
 
-                                <!-- ══ B 라벨 ══ -->
-                                <TextBlock Canvas.Left="20" Canvas.Top="98" Text="A"
-                                           FontFamily="Segoe UI" FontSize="14" FontWeight="Bold" Foreground="#1E293B"/>
-                                <!-- B 거치대 배경 (-58도) -->
-                                <Grid Canvas.Left="-23" Canvas.Top="106" Width="150" Height="42">
-                                    <Grid.RenderTransform>
-                                        <RotateTransform Angle="-58" CenterX="75" CenterY="21"/>
-                                    </Grid.RenderTransform>
-                                    <Border Background="#BFDBFE" CornerRadius="5"
-                                            BorderBrush="#93C5FD" BorderThickness="1"/>
-                                </Grid>
-                                <!-- B1 (하단) -->
-                                <Grid Canvas.Left="7" Canvas.Top="159" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotA1" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="1" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
+                                    <!-- ══ A 거치대 (좌측 수직, 위로 올림) ══ -->
+                                    <TextBlock Canvas.Left="49" Canvas.Top="35" Text="A"
+                                           FontFamily="Segoe UI" FontSize="12" FontWeight="Bold" Foreground="#1E293B"/>
+                                    <Border Canvas.Left="34" Canvas.Top="53" Width="38" Height="134"
+                                        Background="#BFDBFE" CornerRadius="5" BorderBrush="#93C5FD" BorderThickness="1"/>
+                                    <Grid Canvas.Left="39" Canvas.Top="58" Width="28" Height="28">
+                                        <Ellipse x:Name="SlotA4" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="4" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <!-- B2 -->
-                                <Grid Canvas.Left="26" Canvas.Top="127" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotA2" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="2" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
+                                    </Grid>
+                                    <Grid Canvas.Left="39" Canvas.Top="90" Width="28" Height="28">
+                                        <Ellipse x:Name="SlotA3" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="3" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <!-- B3 -->
-                                <Grid Canvas.Left="45" Canvas.Top="95" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotA3" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="3" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
+                                    </Grid>
+                                    <Grid Canvas.Left="39" Canvas.Top="122" Width="28" Height="28">
+                                        <Ellipse x:Name="SlotA2" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="2" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <!-- B4 (상단) -->
-                                <Grid Canvas.Left="64" Canvas.Top="63" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotA4" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="4" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
+                                    </Grid>
+                                    <Grid Canvas.Left="39" Canvas.Top="154" Width="28" Height="28">
+                                        <Ellipse x:Name="SlotA1" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="1" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
+                                    </Grid>
 
-                                <!-- ══ 비커 (B 아래 좌측) ══ -->
-                                <Grid Canvas.Left="22" Canvas.Top="218" Width="50" Height="50">
-                                    <Ellipse Fill="#E5E7EB" Stroke="#D1D5DB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="비커" FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
+                                    <!-- ══ 막대 (A 오른쪽) ══ -->
+                                    <Border Canvas.Left="87" Canvas.Top="119" Width="38" Height="90"
+                                        Background="#E2E8F0" BorderBrush="#94A3B8" BorderThickness="1.5" CornerRadius="4">
+                                        <TextBlock Text="막대" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold"
+                                               Foreground="#475569" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+
+                                    <!-- ══ 로봇 (우측 중앙) ══ -->
+                                    <Grid Canvas.Left="208" Canvas.Top="100" Width="50" Height="50">
+                                        <Ellipse Fill="#E5E7EB" Stroke="#D1D5DB" StrokeThickness="1.5" Margin="0,0,-9,-9" HorizontalAlignment="Right" Width="59"/>
+                                        <TextBlock Text="로봇" FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="#374151" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="19,22,0,0"/>
+                                    </Grid>
+
+                                    <!-- ══ 비커 (A 아래, 위로 올림) ══ -->
+                                    <Grid Canvas.Left="20" Canvas.Top="200" Width="50" Height="50">
+                                        <Ellipse Fill="#E5E7EB" Stroke="#D1D5DB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="비커" FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"
                                                Foreground="#374151" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
+                                    </Grid>
 
-                                <!-- ══ 로봇 (우측 중앙) ══ -->
-                                <Grid Canvas.Left="185" Canvas.Top="140" Width="55" Height="55">
-                                    <Ellipse Fill="#E5E7EB" Stroke="#D1D5DB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="로봇" FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="#374151" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
+                                    <!-- ══ B 거치대 (하단 우측 수평) ══ -->
+                                    <TextBlock Canvas.Left="112" Canvas.Top="236" Text="B"
+                                           FontFamily="Segoe UI" FontSize="12" FontWeight="Bold" Foreground="#1E293B" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                    <Border Canvas.Left="125" Canvas.Top="223" Width="140" Height="38"
+                                        Background="#BFDBFE" CornerRadius="5" BorderBrush="#93C5FD" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                    <Grid Canvas.Left="134" Canvas.Top="228" Width="28" Height="28">
+                                        <Ellipse x:Name="SlotB4" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="4" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
+                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Grid Canvas.Left="166" Canvas.Top="228" Width="28" Height="28">
+                                        <Ellipse x:Name="SlotB3" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="3" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
+                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Grid Canvas.Left="198" Canvas.Top="228" Width="28" Height="28">
+                                        <Ellipse x:Name="SlotB2" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="2" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
+                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Grid Canvas.Left="230" Canvas.Top="228" Width="28" Height="28">
+                                        <Ellipse x:Name="SlotB1" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <TextBlock Text="1" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
+                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
 
-                                <!-- ══ C 라벨 ══ -->
-                                <TextBlock Canvas.Left="166" Canvas.Top="242" Text="B"
-                                           FontFamily="Segoe UI" FontSize="14" FontWeight="Bold" Foreground="#1E293B"/>
-                                <!-- C 거치대 배경 -->
-                                <Border Canvas.Left="100" Canvas.Top="264" Width="150" Height="38"
-                                        Background="#BFDBFE" CornerRadius="5"
-                                        BorderBrush="#93C5FD" BorderThickness="1"/>
-                                <Grid Canvas.Left="104" Canvas.Top="267" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotB1" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="4" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
-                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <Grid Canvas.Left="140" Canvas.Top="267" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotB2" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="3" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
-                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <Grid Canvas.Left="176" Canvas.Top="267" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotB3" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="2" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
-                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-                                <Grid Canvas.Left="212" Canvas.Top="267" Width="32" Height="32">
-                                    <Ellipse x:Name="SlotB4" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
-                                    <TextBlock Text="1" FontSize="12" FontFamily="Segoe UI" FontWeight="Bold"
-                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Grid>
-
-                                <!-- 상태 텍스트 -->
-                                <TextBlock x:Name="MapStatusText" Canvas.Left="100" Canvas.Top="210"
-                                           Text="" FontFamily="Segoe UI" FontSize="11" FontWeight="Bold"
+                                    <!-- 상태 텍스트 -->
+                                    <TextBlock x:Name="MapStatusText" Canvas.Left="82" Canvas.Top="183"
+                                           Text="" FontFamily="Segoe UI" FontSize="10" FontWeight="Bold"
                                            Foreground="#2563EB"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Border>
+                                </Canvas>
+                            </Viewbox>
+                        </Border>
 
-                </StackPanel>
+                    </StackPanel>
                 </ScrollViewer>
             </Border>
         </Grid>
