@@ -26,7 +26,9 @@ namespace monitoring_wpf.Services
 
         // 트래킹 프로세스 (Learning_TWM) — WPF 종료 시까지 유지
         private readonly List<Process> _trackingProcs = new();
-        // 실험 프로세스 (Zone_tracker, gesture_control) — 실험 종료 시 정리
+        // 제스처 프로세스 (gesture_control) — 실험 종료 시 재시작 (로봇 연결 버전으로)
+        private readonly List<Process> _gestureProcs = new();
+        // 실험 프로세스 (Zone_tracker) — 실험 종료 시 정리
         private readonly List<Process> _experimentProcs = new();
 
         // gesture_learning 폴더 경로 (실행 시 자동 탐색)
@@ -246,27 +248,33 @@ namespace monitoring_wpf.Services
         }
 
         /// <summary>
-        /// 얼굴 인증 통과 직후 호출. gesture_control_v6 실행 → MJPEG 스트림 활성화.
+        /// 얼굴 인증 통과 직후 호출. gesture_control_v6 실행 (로봇 미연결) → MJPEG 스트림만 활성화.
         /// </summary>
-        public void StartGesture(bool useRobot, string robotIp, int robotPort)
+        public void StartGesture()
         {
-            string robotArg = useRobot ? "yes" : "no";
+            // 메인화면용 — 로봇 연결 없이 MJPEG 스트림만 활성화
             Launch("gesture_control_v6.py",
-                $"--robot {robotArg} --ip {robotIp} --port {robotPort} --home no",
-                _trackingProcs);  // Learning_TWM 처럼 WPF 종료 시까지 유지
+                "--robot no --home no",
+                _gestureProcs);
         }
 
         /// <summary>
-        /// "시작" 버튼 클릭 시 호출. Zone_tracker 만 실행 (gesture_control 은 이미 실행 중).
+        /// "시작" 버튼 클릭 시 호출. 기존 gesture_control 종료 후 로봇 연결 버전으로 재시작.
+        /// Zone_tracker 도 함께 실행.
         /// </summary>
         public void StartAll(string userName, bool useRobot, string robotIp, int robotPort)
         {
             string robotArg = useRobot ? "yes" : "no";
 
+            // 기존 gesture_control(로봇 미연결) 종료 → 로봇 연결 버전으로 재시작
+            KillProcs(_gestureProcs);
+            Launch("gesture_control_v6.py",
+                $"--robot {robotArg} --ip {robotIp} --port {robotPort} --home no",
+                _experimentProcs);
+
             Launch("Zone_tracker.py",
                 $"--robot {robotArg} --ip {robotIp} --port {robotPort}",
                 _experimentProcs);
-            // gesture_control_v6.py 는 OnAuthCompleted 에서 이미 실행됨 → 여기선 제거
         }
 
         private void Launch(string scriptName, string scriptArgs, List<Process> bucket)
@@ -332,11 +340,14 @@ namespace monitoring_wpf.Services
         public void StopExperiment()
         {
             KillProcs(_experimentProcs);
+            // 실험 종료 후 gesture_control 을 로봇 미연결 버전으로 재시작 (미리보기 유지)
+            Launch("gesture_control_v6.py", "--robot no --home no", _gestureProcs);
         }
 
         public void StopAll()
         {
             KillProcs(_experimentProcs);
+            KillProcs(_gestureProcs);
             KillProcs(_trackingProcs);
         }
 
