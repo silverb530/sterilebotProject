@@ -98,7 +98,7 @@
                             <!-- 카메라 인덱스 힌트 (개발용) -->
                             <Border Background="#F0F9FF" CornerRadius="4" Padding="6,1"
                                     Margin="10,0,0,0">
-                                <TextBlock Text="CAM 0"
+                                <TextBlock Text="CAM 2"
                                            FontFamily="Segoe UI Mono" FontSize="9" Foreground="#0284C7"/>
                             </Border>
                         </StackPanel>
@@ -121,7 +121,7 @@
                             Height="38" Panel.ZIndex="1">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0">
                             <Ellipse Width="8" Height="8" Fill="#F59E0B" Margin="0,0,7,0"/>
-                            <TextBlock Text="로봇암 카메라"
+                            <TextBlock Text="손동작 카메라"
                                        FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
                                        Foreground="#374151"/>
                             <Border Background="#FFF7E6" CornerRadius="4" Padding="6,1"
