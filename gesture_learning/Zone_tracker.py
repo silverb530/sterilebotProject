@@ -186,6 +186,8 @@ def main():
     cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # 자동초점 비활성화
+    cap.set(cv2.CAP_PROP_FOCUS, 0)      # 초점 고정 (0 = 무한대)
     fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     fh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"[INFO] 웹캠: {fw}x{fh}")
