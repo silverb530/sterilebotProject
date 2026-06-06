@@ -19,7 +19,7 @@ namespace monitoring_wpf.Views
         private CancellationTokenSource? _cts;
         private readonly DispatcherTimer _scanTimer = new();
         private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(5) };
-        private const string FlaskUrl = "http://localhost:5000/api/face/login";
+        private const string FlaskUrl = "http://127.0.0.1:5000/api/face/login";
 
         private double _scanY = 0;
         private bool _isAuthenticating = false;

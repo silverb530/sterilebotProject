@@ -522,4 +522,4 @@ if __name__ == "__main__":
     print("  얼굴 등록:    POST /api/researchers/{id}/face")
     print("  얼굴 로그인:  POST /api/face/login")
     print("=" * 50)
-    app.run(debug=True, host="0.0.0.0", port=5000, threaded=True)
+    app.run(debug=False, host="0.0.0.0", port=5000, threaded=True)

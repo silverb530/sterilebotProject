@@ -1,0 +1,11 @@
+import cv2
+import numpy as np
+
+for i in [0, 1]:
+    cap = cv2.VideoCapture(i)
+    ret, frame = cap.read()
+    cap.release()
+    if ret:
+        print(f"[{i}] 평균 밝기={np.mean(frame):.1f}, 최대={frame.max()}")
+    else:
+        print(f"[{i}] 읽기 실패")

@@ -78,7 +78,7 @@ namespace monitoring_wpf.Services
         public event Action? Connected;
         public event Action<string>? ConnectionError;
 
-        public FlaskClient(string baseUrl = "http://localhost:5000")
+        public FlaskClient(string baseUrl = "http://127.0.0.1:5000")
         {
             _base = baseUrl.TrimEnd('/');
             _http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
