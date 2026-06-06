@@ -30,12 +30,46 @@ namespace monitoring_wpf.Views
             InitializeComponent();
             Loaded += (_, _) => OnLoaded();
             Unloaded += (_, _) => StopCamera();
+            IsVisibleChanged += (_, _) =>
+            {
+                if (IsVisible)
+                {
+                    ResetView();
+                    StartScanAnimation();
+                    StartCamera();
+                }
+                else
+                {
+                    StopCamera();
+                }
+            };
+        }
+
+        /// <summary>
+        /// UI 상태 초기화 — 로그아웃 후 다시 돌아왔을 때 이전 인증 결과 제거
+        /// </summary>
+        private void ResetView()
+        {
+            _isAuthenticating = false;
+            _isFailed = false;
+            _scanY = 0;
+
+            AuthBadge.Visibility = Visibility.Collapsed;
+            ConfidencePanel.Visibility = Visibility.Collapsed;
+            NoCamPlaceholder.Visibility = Visibility.Collapsed;
+            AuthLine1.Text = "얼굴을 카메라에 맞춰주세요";
+            AuthLine2.Text = "";
+
+            // 코너 라인 색상 원래대로 (초록)
+            foreach (var n in new[] { "BL_V1", "BL_H1", "BR_V1", "BR_H1", "BL_V2", "BL_H2", "BR_V2", "BR_H2" })
+                if (FindName(n) is System.Windows.Shapes.Line l)
+                    l.Stroke = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
         }
 
         private void OnLoaded()
         {
-            StartScanAnimation();
-            StartCamera();
+            // IsVisibleChanged 에서 처리하므로 여기서는 아무것도 안 함
+            // (Loaded + IsVisibleChanged 동시 발생 시 중복 방지)
         }
 
         // 스캔 라인 애니메이션
@@ -164,7 +198,7 @@ namespace monitoring_wpf.Views
         }
 
         // 인증 성공
-        private void ShowAuthComplete(int id , string name, string role, double confidence)
+        private void ShowAuthComplete(int id, string name, string role, double confidence)
         {
             if (AuthBadge.Visibility == Visibility.Visible) return;
 

@@ -164,6 +164,7 @@ def collect_data():
     cap = cv2.VideoCapture(CAMERA_ID, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     all_features, all_labels = [], []
     print("="*50)
     print(f"  데이터 수집: {len(GESTURES)}개 x {SAMPLES_PER_GESTURE}개")
@@ -278,6 +279,7 @@ def run_realtime(model):
     cap = cv2.VideoCapture(CAMERA_ID, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     # WPF 자동 실행 시 창을 화면 밖으로 숨기고 MJPEG 스트리밍 시작
     cv2.namedWindow("ChemiBot - Gesture Control v6", cv2.WINDOW_NORMAL)

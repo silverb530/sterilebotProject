@@ -190,8 +190,8 @@ namespace monitoring_wpf.Services
             {
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "py",
-                    Arguments = $"-3.11 -u \"{scriptPath}\"",
+                    FileName = ServerPythonExe,
+                    Arguments = $"-u \"{scriptPath}\"",
                     WorkingDirectory = ServerDir,
                     UseShellExecute = false,
                     CreateNoWindow = true,

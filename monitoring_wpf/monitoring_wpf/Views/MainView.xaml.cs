@@ -52,12 +52,15 @@ namespace monitoring_wpf.Views
             _clock.Tick += (_, _) => ClockText.Text = DateTime.Now.ToString("HH:mm:ss");
             _clock.Start();
 
-            IsVisibleChanged += (_, _) =>
+            IsVisibleChanged += async (_, _) =>
             {
                 if (IsVisible)
                 {
                     if (!string.IsNullOrEmpty(MainWindow.AuthName))
                         UserLabel.Text = $"{MainWindow.AuthName} {MainWindow.AuthRole}";
+
+                    // Zone_tracker 종료 후 카메라 해제까지 대기
+                    await System.Threading.Tasks.Task.Delay(1500);
 
                     // 실험실 조감캠 — camera_indices.json 의 "lab" 키로 동적 탐색
                     LabCam.Start(cameraIndex: LabCamIndex, noSignalLabel: "조감 카메라 대기 중");

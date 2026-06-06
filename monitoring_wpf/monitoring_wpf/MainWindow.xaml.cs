@@ -41,7 +41,20 @@ namespace monitoring_wpf
             ViewFaceAuth.OnAuthComplete = OnAuthCompleted;
             ViewMain.OnDriveTest = () => Navigate("drivetest");
             ViewMain.OnStart = StartExperiment;
-            ViewMain.OnExit = () => Application.Current.Shutdown();
+            ViewMain.OnExit = () =>
+            {
+                // 로그아웃: 모든 Python 프로세스 종료 후 Flask만 재시작
+                _procMgr.StopAll();
+                _procMgr.StartFlaskServer();
+
+                // 인증 정보 초기화
+                AuthName = "";
+                AuthRole = "";
+                AuthId = 0;
+                CalibName = "";
+
+                Navigate("faceauth");
+            };
             ViewRunning.OnExit = () =>
             {
                 // 이미 환기 중이면 무시 (중복 클릭 방지)
@@ -59,6 +72,9 @@ namespace monitoring_wpf
                 // 실험 종료: Zone_tracker, gesture_control 만 종료.
                 // Learning_TWM(시선 트래킹) 은 계속 작동하므로 커서도 그대로.
                 _procMgr.StopExperiment();
+                // Pi 로그 초기화 (다음 실험을 위해)
+                _ = new HttpClient { Timeout = TimeSpan.FromSeconds(3) }
+                    .GetAsync("http://192.168.0.32:5001/clear_log");
                 Navigate("main");
             };
 
@@ -157,11 +173,8 @@ namespace monitoring_wpf
         //  - 로봇: 항상 연결 (useRobot = true)
         private void StartExperiment()
         {
-            string defaultName = string.IsNullOrEmpty(CalibName) ? "" : CalibName;
-            var dlg = new StartupDialog(defaultName);
-            if (dlg.ShowDialog() != true) return;  // 취소 시 아무것도 안 함
-
-            _procMgr.StartAll(dlg.UserName, useRobot: dlg.UseRobot, robotIp: dlg.RobotIp, robotPort: dlg.RobotPort);
+            string userName = string.IsNullOrEmpty(CalibName) ? "minjun" : CalibName;
+            _procMgr.StartAll(userName, useRobot: true, robotIp: "192.168.0.32", robotPort: 5001);
             Navigate("running");
         }
 
