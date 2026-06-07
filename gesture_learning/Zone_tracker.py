@@ -39,6 +39,18 @@ DWELL_COOLDOWN  = 1.5
 # ────────────────────────────────────────────────
 #  구역 파일 로드
 # ────────────────────────────────────────────────
+def can_drop_at(slot, tube_slots):
+    """인접 슬롯에 시험관이 있으면 False (옆으로 집을 공간 없음)"""
+    prefix = slot.rstrip("0123456789")   # "A" or "B"
+    num_str = slot[len(prefix):]
+    if not num_str.isdigit():
+        return True
+    num = int(num_str)
+    for adj in [num - 1, num + 1]:
+        adj_slot = f"{prefix}{adj}"
+        if adj_slot in tube_slots:
+            return False
+    return True
 def load_zones():
     if not os.path.exists(ZONE_FILE):
         print(f"[ERROR] 구역 파일 없음: {ZONE_FILE}")
@@ -542,8 +554,10 @@ def main():
                                 pickup_pending = True
                                 pickup_mode    = "horizontal"
                         else:
-                            # 빈 슬롯
-                            if holding_tube and pickup_mode == "horizontal":
+                            # 빈 슬롯 — 인접 슬롯 검증 (옆으로 집기 공간 확보)
+                            if holding_tube and not can_drop_at(slot, tube_slots):
+                                print(f"  [WARN] {slot} 인접 슬롯에 시험관 있음 → 꽂기 불가 (옆으로 집을 공간 없음)")
+                            elif holding_tube and pickup_mode == "horizontal":
                                 # 수평으로 잡았으면 수평으로 이동 후 RELEASE 대기
                                 ok = False
                                 if robot:
