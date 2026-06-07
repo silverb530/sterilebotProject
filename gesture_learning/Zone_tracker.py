@@ -787,6 +787,8 @@ def main():
         # 세부 박스 표시 (STAGE2일 때만)
         if state == "STAGE2" and selected_zone:
           children = selected_zone.get("children", [])
+          zone_name = selected_zone["name"].upper()
+          is_tube_zone = "TUBES" in zone_name  # A_tubes, B_tubes
           for i, ch in enumerate(children):
             cx1,cy1,cx2,cy2 = ch["x1"],ch["y1"],ch["x2"],ch["y2"]
             is_selected = (selected_child and
@@ -796,7 +798,18 @@ def main():
             if selected_child and not is_selected:
                 continue
 
-            color = (0, 220, 255) if is_selected else (100, 255, 100)
+            # 인접 슬롯 차단 — 시험관 들고 있을 때 A/B_tubes에서 숨김
+            slot = ch.get("slot", "")
+            blocked = (holding_tube and is_tube_zone and
+                       slot not in tube_slots and
+                       not can_drop_at(slot, tube_slots))
+            if blocked:
+                continue
+
+            if is_selected:
+                color = (0, 220, 255)
+            else:
+                color = (100, 255, 100)
             thick = 3 if is_selected else 2
             cv2.rectangle(display, (cx1,cy1), (cx2,cy2), color, thick)
             cv2.putText(display,
