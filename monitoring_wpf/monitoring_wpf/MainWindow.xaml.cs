@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace monitoring_wpf
@@ -28,6 +29,10 @@ namespace monitoring_wpf
         // 영문 캘리브 파일명 (name_map.json 으로 변환된 결과)
         public static string CalibName { get; set; } = "";
 
+        // ★ 대피 음성 재생 — myCobot Pi HTTP
+        private static readonly HttpClient _alarmHttp = new() { Timeout = TimeSpan.FromSeconds(3) };
+        private const string PiAlarmBase = "http://192.168.0.32:5001";
+
         public MainWindow()
         {
             InitializeComponent();
@@ -35,7 +40,8 @@ namespace monitoring_wpf
             //       같이 죽이는 부작용이 있어서 사용 안 함.
             //       좀비가 쌓이면 PowerShell 에서 taskkill /F /IM python.exe 수동 사용.
             SetupFlask();
-            _procMgr.StartFlaskServer();  // Flask 서버 자동 시작 (app.py)
+            _procMgr.StartFlaskServer();      // Flask 서버 자동 시작 (app.py)
+            _procMgr.StartFallDetection();    // ★ 쓰러짐 감지 백그라운드 실행
 
             // Wire navigation callbacks
             ViewFaceAuth.OnAuthComplete = OnAuthCompleted;
@@ -79,25 +85,40 @@ namespace monitoring_wpf
             };
 
             ViewDriveTest.OnBack = () => Navigate("main");
+
+            // ★ 비상 버튼 클릭 시 음성 재생 추가
             ViewRunning.OnEmergencyStop = () =>
             {
                 ViewRunning.SetEmergency(true);
                 _ = EmergencyListenerService.SendToPiAsync("EMERGENCY");
                 _ = _emergencyService.HisLoadStartAsync("WPF_BUTTON", MainWindow.AuthId);
+                _ = PlayAlarmAsync();  // ★ 대피 음성 재생
             };
+
+            // ★ 비상 해제 시 음성 중단 추가
             ViewRunning.OnResume = () =>
             {
                 ViewRunning.SetEmergency(false);
                 _ = EmergencyListenerService.SendToPiAsync("EMERGENCY_END"); // Pi 부저/LCD도 끔
                 _ = _emergencyService.HisLoadEndAsync("WPF_RESET");
+                _ = StopAlarmAsync();  // ★ 대피 음성 중단
             };
 
+            // ★ Pi 발생 비상 시에도 음성 재생
             _emergencyService.EmergencyStateChanged += isEmergency =>
             {
                 Dispatcher.Invoke(() => ViewRunning.SetEmergency(isEmergency));
-                if (isEmergency)  // Pi가 발생시킨 비상 → researcher_id 업데이트
+                if (isEmergency)
+                {
                     _ = _emergencyService.UpdateResearcherAsync(MainWindow.AuthId);
+                    _ = PlayAlarmAsync();  // ★ 대피 음성 재생
+                }
+                else
+                {
+                    _ = StopAlarmAsync();  // ★ 대피 음성 중단
+                }
             };
+
             // 환기 완료 신호 받으면 알림창 닫기 → OnExit의 ShowDialog가 반환됨
             _emergencyService.VentDone += () =>
             {
@@ -111,6 +132,34 @@ namespace monitoring_wpf
             _emergencyService.Start();
 
             Navigate("faceauth");
+        }
+
+        // ★ 대피 음성 재생 요청
+        private async Task PlayAlarmAsync()
+        {
+            try
+            {
+                await _alarmHttp.PostAsync($"{PiAlarmBase}/play_alarm", null);
+                System.Diagnostics.Debug.WriteLine("[Alarm] 재생 요청 성공");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Alarm] 재생 실패: {ex.Message}");
+            }
+        }
+
+        // ★ 대피 음성 중단 요청
+        private async Task StopAlarmAsync()
+        {
+            try
+            {
+                await _alarmHttp.PostAsync($"{PiAlarmBase}/stop_alarm", null);
+                System.Diagnostics.Debug.WriteLine("[Alarm] 중단 요청 성공");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Alarm] 중단 실패: {ex.Message}");
+            }
         }
 
         // 얼굴 인증 통과 직후:

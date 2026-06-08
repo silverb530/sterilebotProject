@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-SterileBot - 쓰러짐 감지 모듈
+SterileBot - 쓰러짐 감지 모듈 (백그라운드 실행)
 MediaPipe Pose 기반, CCTV 대각선 설치 환경
 
 포트:
   9998 UDP - 비상/해제 신호 (양방향)
-  9999 TCP - 카메라 영상 스트리밍
+  9999 TCP - 카메라 영상 스트리밍 (보안실)
+  9005 TCP - 통제실 WPF 비상 알림
 """
 
 import cv2
@@ -26,9 +27,11 @@ VISIBILITY_MIN    = 0.3
 CONDITION_REQUIRE = 2
 
 # ── 포트 설정 ────────────────────────────────────────────────
-UDP_PORT          = 9998   # 비상/해제 신호 (양방향)
-TCP_PORT          = 9999   # 카메라 영상 스트리밍
-UDP_INTERVAL      = 0.1    # 비상 신호 재전송 간격 (짧을수록 stop 후 빨리 멈춤)
+UDP_PORT              = 9998   # 비상/해제 신호 (양방향)
+TCP_PORT              = 9999   # 카메라 영상 스트리밍 (보안실)
+UDP_INTERVAL          = 0.1    # 비상 신호 재전송 간격
+MONITORING_PC_IP      = "192.168.0.25"  # 통제실 PC IP
+MONITORING_PC_PORT    = 9005            # EmergencyListenerService 수신 포트
 
 IDX = {
     "nose":        0,
@@ -41,6 +44,22 @@ IDX = {
     "l_ankle":    27,
     "r_ankle":    28,
 }
+
+
+# ── 통제실 WPF 비상 알림 (TCP) ───────────────────────────────
+def send_to_monitoring(msg: str):
+    """통제실 WPF EmergencyListenerService로 TCP 전송"""
+    def _send():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2)
+            s.connect((MONITORING_PC_IP, MONITORING_PC_PORT))
+            s.sendall(msg.encode())
+            s.close()
+            print(f"[TCP] 통제실 알림 전송 완료: {msg}")
+        except Exception as e:
+            print(f"[TCP] 통제실 전송 실패: {e}")
+    threading.Thread(target=_send, daemon=True).start()
 
 
 # ── UDP 브로드캐스터 (통제실 → 보안실) ───────────────────────
@@ -96,7 +115,7 @@ class UdpReceiver:
                 data, addr = sock.recvfrom(1024)
                 msg = json.loads(data.decode())
                 if msg.get("type") == "clear":
-                    print(f"\n[UDP:{UDP_PORT}] 보안실 해제 확인 수신 ({addr}) → 자동 리셋")
+                    print(f"\n[UDP:{UDP_PORT}] 보안실 해제 수신 ({addr}) → 자동 리셋")
                     self.clear_requested = True
             except socket.timeout:
                 continue
@@ -104,7 +123,7 @@ class UdpReceiver:
                 pass
 
 
-# ── TCP 스트리밍 서버 ─────────────────────────────────────────
+# ── TCP 스트리밍 서버 (보안실) ────────────────────────────────
 class TcpStreamServer:
     def __init__(self):
         self._clients = []
@@ -133,7 +152,6 @@ class TcpStreamServer:
         if self._server:
             try: self._server.close()
             except: pass
-        print(f"[TCP:{TCP_PORT}] 서버 종료")
 
     def send_frame(self, frame_bgr):
         if not self._clients:
@@ -168,7 +186,7 @@ class TcpStreamServer:
             while self._running:
                 try:
                     conn, addr = self._server.accept()
-                    print(f"[TCP:{TCP_PORT}] ✅ 보안실 연결! {addr}")
+                    print(f"[TCP:{TCP_PORT}] 보안실 연결! {addr}")
                     with self._lock:
                         self._clients.append(conn)
                 except socket.timeout:
@@ -193,18 +211,17 @@ def trigger_emergency(timestamp: str):
     print("\n" + "="*50)
     print("  ⚠  쓰러짐 확정!")
     print("="*50)
-    # TCP는 이미 상시 운영 중
-    _udp_broadcaster.start(timestamp)
+    _udp_broadcaster.start(timestamp)       # 보안실 WPF (UDP)
+    send_to_monitoring("EMERGENCY")         # 통제실 WPF (TCP)
 
 
 def do_reset(detector, flash_state_ref):
-    """리셋 공통 처리"""
     detector.fall_start = None
     detector.is_fallen  = False
     detector.alerted    = False
     _udp_broadcaster.stop()
-    # TCP는 상시 유지 — 종료하지 않음
     _udp_receiver.clear_requested = False
+    send_to_monitoring("EMERGENCY_END")     # 통제실 WPF 해제 알림
 
 
 # ── 메인 감지 클래스 ─────────────────────────────────────────
@@ -275,10 +292,7 @@ class FallDetector:
 
         with _tcp_server._lock:
             n = len(_tcp_server._clients)
-        if _tcp_server.active:
-            conn_str = f"TCP: {'스트리밍 ✅' if n > 0 else '대기 ⏳'}"
-        else:
-            conn_str = "TCP: 대기"
+        conn_str = f"TCP: {'스트리밍 ✅' if n > 0 else '대기 ⏳'}"
         print(f"dy={dy:.3f}(<{FALL_DIFF_Y}) nose={ny:.3f}(>0.28) 조건={count}/{CONDITION_REQUIRE} [{conn_str}]", end="\r")
 
         if count >= CONDITION_REQUIRE:
@@ -317,119 +331,72 @@ def main(camera_src):
     mp_draw  = mp.solutions.drawing_utils
     mp_pose  = mp.solutions.pose
 
-    _udp_receiver.start()  # 보안실 해제 신호 수신 시작
-    _tcp_server.start()    # TCP 영상 서버 상시 시작
+    _udp_receiver.start()
+    _tcp_server.start()
 
     flash_state  = False
     last_flash_t = time.time()
 
-    print("[Fall Detection Start]")
-    print(f"  Camera : {camera_src}")
-    print(f"  UDP    : {UDP_PORT} (비상/해제 신호)")
-    print(f"  TCP    : {TCP_PORT} (영상 스트리밍)")
-    print(f"  Quit: q | Reset: r\n")
+    print("[Fall Detection Start - Background Mode]")
+    print(f"  Camera     : {camera_src}")
+    print(f"  UDP        : {UDP_PORT} (비상/해제 신호)")
+    print(f"  TCP        : {TCP_PORT} (영상 스트리밍 → 보안실)")
+    print(f"  Monitoring : {MONITORING_PC_IP}:{MONITORING_PC_PORT} (통제실 WPF)")
+    print(f"  Quit: Ctrl+C\n")
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            print("[ERROR] No frame")
-            break
+    try:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                print("[ERROR] No frame")
+                break
 
-        # 보안실 해제 신호 수신 시 자동 리셋
-        if _udp_receiver.clear_requested:
-            do_reset(detector, None)
-            flash_state = False
-            print("\n[AUTO RESET] 보안실 해제 신호 → 자동 리셋 완료")
+            # 보안실 해제 신호 수신 시 자동 리셋
+            if _udp_receiver.clear_requested:
+                do_reset(detector, None)
+                flash_state = False
+                print("\n[AUTO RESET] 보안실 해제 신호 → 자동 리셋 완료")
 
-        h, w = frame.shape[:2]
-        rgb  = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        res  = detector.pose.process(rgb)
+            h, w = frame.shape[:2]
+            rgb  = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            res  = detector.pose.process(rgb)
 
-        status, color, pct, fallen = "NO PERSON", (150, 150, 150), 0.0, False
+            status, color, pct, fallen = "NO PERSON", (150, 150, 150), 0.0, False
 
-        if res.pose_landmarks:
-            lm = res.pose_landmarks.landmark
+            if res.pose_landmarks:
+                lm = res.pose_landmarks.landmark
 
-            try:
-                mp_draw.draw_landmarks(
-                    frame, res.pose_landmarks,
-                    mp_pose.POSE_CONNECTIONS,
-                    mp_draw.DrawingSpec(color=(0,255,150), thickness=2, circle_radius=3),
-                    mp_draw.DrawingSpec(color=(0,180,100), thickness=2)
-                )
-            except Exception:
-                pass
+                try:
+                    mp_draw.draw_landmarks(
+                        frame, res.pose_landmarks,
+                        mp_pose.POSE_CONNECTIONS,
+                        mp_draw.DrawingSpec(color=(0,255,150), thickness=2, circle_radius=3),
+                        mp_draw.DrawingSpec(color=(0,180,100), thickness=2)
+                    )
+                except Exception:
+                    pass
 
-            l_sh = lm[IDX["l_shoulder"]]
-            r_sh = lm[IDX["r_shoulder"]]
-            l_hp = lm[IDX["l_hip"]]
-            r_hp = lm[IDX["r_hip"]]
-            sh_y = int((l_sh.y + r_sh.y) / 2 * h)
-            hp_y = int((l_hp.y + r_hp.y) / 2 * h)
-            cv2.line(frame, (0, sh_y), (w, sh_y), (255, 200, 0), 1)
-            cv2.line(frame, (0, hp_y), (w, hp_y), (0, 200, 255), 1)
-            cv2.putText(frame, "Shoulder", (5, sh_y - 5),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 200, 0), 1)
-            cv2.putText(frame, "Hip", (5, hp_y - 5),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 200, 255), 1)
+                l_sh = lm[IDX["l_shoulder"]]
+                r_sh = lm[IDX["r_shoulder"]]
+                l_hp = lm[IDX["l_hip"]]
+                r_hp = lm[IDX["r_hip"]]
+                sh_y = int((l_sh.y + r_sh.y) / 2 * h)
+                hp_y = int((l_hp.y + r_hp.y) / 2 * h)
+                cv2.line(frame, (0, sh_y), (w, sh_y), (255, 200, 0), 1)
+                cv2.line(frame, (0, hp_y), (w, hp_y), (0, 200, 255), 1)
 
-            status, color, pct, fallen = detector.update(lm)
+                status, color, pct, fallen = detector.update(lm)
 
-        if _tcp_server.active:
-            _tcp_server.send_frame(frame)
+            # TCP 프레임 전송 (보안실 상시 스트리밍)
+            if _tcp_server.active:
+                _tcp_server.send_frame(frame)
 
-        if fallen:
-            now = time.time()
-            if now - last_flash_t >= 0.5:
-                flash_state  = not flash_state
-                last_flash_t = now
-            if flash_state:
-                red_overlay = frame.copy()
-                red_overlay[:] = (0, 0, 200)
-                cv2.addWeighted(red_overlay, 0.5, frame, 0.5, 0, frame)
-        else:
-            flash_state  = False
-            last_flash_t = time.time()
-
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (0, 0), (w, 45), (20, 20, 20), -1)
-        cv2.addWeighted(overlay, 0.6, frame, 0.4, 0, frame)
-
-        cv2.putText(frame, status, (12, 30),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-
-        if pct > 0:
-            bar_w = int(w * pct)
-            cv2.rectangle(frame, (0, 44), (bar_w, 50), color, -1)
-
-        if fallen:
-            cv2.rectangle(frame, (0, 0), (w-1, h-1), (0, 0, 220), 6)
-
-        if _tcp_server.active:
-            with _tcp_server._lock:
-                n = len(_tcp_server._clients)
-            tcp_txt = f"TCP: {'STREAMING ✅' if n > 0 else 'WAITING...'}"
-            tcp_col = (0, 255, 0) if n > 0 else (0, 165, 255)
-            cv2.putText(frame, tcp_txt, (w - 300, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.65, tcp_col, 2)
-
-        cv2.putText(frame, "- Shoulder (yellow)   - Hip (cyan)",
-            (12, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (180, 180, 180), 1)
-
-        cv2.imshow("SterileBot - Fall Detection", frame)
-
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-        elif key == ord('r'):
-            do_reset(detector, None)
-            flash_state = False
-            print("\n[RESET] 수동 리셋 완료")
-
-    _udp_broadcaster.stop()
-    _tcp_server.stop()
-    cap.release()
-    cv2.destroyAllWindows()
+    except KeyboardInterrupt:
+        print("\n[종료]")
+    finally:
+        _udp_broadcaster.stop()
+        _tcp_server.stop()
+        cap.release()
 
 
 if __name__ == "__main__":

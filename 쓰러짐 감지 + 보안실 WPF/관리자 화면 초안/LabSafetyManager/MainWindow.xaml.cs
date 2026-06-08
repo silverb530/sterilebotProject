@@ -17,7 +17,7 @@ namespace LabSafetyManager
         // ── 통제실 PC IP 설정 ───────────────────────────────────
         // 보안실 WPF는 로컬 카메라를 직접 열지 않는다.
         // 평소에는 대기 화면, 쓰러짐 감지 시에만 통제실에서 TCP로 영상이 온다.
-        private const string CONTROL_PC_IP = "192.168.0.38"; // 통제실 PC IP
+        private const string CONTROL_PC_IP = "192.168.0.25"; // 통제실 PC IP
         private const int FALL_TCP_PORT = 9999;
 
         private readonly FallTcpClient _fallClient;
