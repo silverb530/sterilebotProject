@@ -45,7 +45,11 @@ namespace monitoring_wpf
 
             // Wire navigation callbacks
             ViewFaceAuth.OnAuthComplete = OnAuthCompleted;
-            ViewMain.OnDriveTest = () => Navigate("drivetest");
+            ViewMain.OnDriveTest = () =>
+            {
+                var w = new monitoring_wpf.Views.DriveTestWindow { Owner = this };
+                w.ShowDialog();
+            };
             ViewMain.OnStart = StartExperiment;
             ViewMain.OnExit = () =>
             {
