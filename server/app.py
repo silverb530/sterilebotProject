@@ -1,9 +1,9 @@
 """
-ChemiBot Flask API server
-- REST API + SSE for WPF
-- Admin features: researcher management / usage history / settings
-- Face recognition: register / login (MySQL + face_recognition)
-- React build serving: manager_web/dist/
+ChemiBot — Flask API 서버 (통합)
+- REST API + SSE: 모니터링 WPF (HTTP 폴링)
+- 관리자 기능: 연구원 관리 / 실험 이력 / 시스템 설정
+- 안면인식: 얼굴 등록 / 로그인 인증 (MySQL + face_recognition)
+- React 빌드 서빙: manager_web/dist/
 """
 
 from flask import Flask, jsonify, request, Response, send_from_directory
