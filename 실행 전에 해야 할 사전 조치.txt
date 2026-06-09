@@ -1,0 +1,5 @@
+1. server와 gesture_learning 폴더에 가상환경 파일이 있다면 삭제한다.
+
+2. 그 후에 setup.bat 파일을 실행한다.
+
+3. 이제 wpf를 사용하면 된다.
