@@ -64,6 +64,11 @@ namespace monitoring_wpf.Views
             foreach (var n in new[] { "BL_V1", "BL_H1", "BR_V1", "BR_H1", "BL_V2", "BL_H2", "BR_V2", "BR_H2" })
                 if (FindName(n) is System.Windows.Shapes.Line l)
                     l.Stroke = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
+
+            // ◀ 테스트용 임시 자동 인증 (나중에 삭제!)
+            var skip = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            skip.Tick += (_, _) => { skip.Stop(); ShowAuthComplete(1, "강은비", "연구원", 99.9); };
+            skip.Start();
         }
 
         private void OnLoaded()
@@ -96,7 +101,7 @@ namespace monitoring_wpf.Views
                 VideoCapture? cap = null;
                 try
                 {
-                    cap = new VideoCapture(0, VideoCaptureAPIs.DSHOW);
+                    cap = new VideoCapture(2, VideoCaptureAPIs.DSHOW);
                     if (!cap.IsOpened())
                     {
                         await Dispatcher.InvokeAsync(() =>

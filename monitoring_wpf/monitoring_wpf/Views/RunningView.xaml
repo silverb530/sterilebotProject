@@ -109,7 +109,7 @@
                             <Grid x:Name="MainCamGrid" Background="#070C14"
                                   Cursor="Hand"
                                   MouseLeftButtonDown="MainCam_Click">
-                                <views:CameraFeedControl x:Name="MainCam"/>
+                                <views:CameraFeedControl x:Name="MainCam" Loaded="MainCam_Loaded"/>
 
                                 <!-- 메인 카메라 라벨 (좌하단) -->
                                 <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
@@ -150,13 +150,25 @@
                                                       ShadowDepth="0" Opacity="0.45"/>
                                 </Border.Effect>
                                 <Grid Background="#070C14">
-                                    <views:CameraFeedControl x:Name="PipCam"/>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="97*"/>
+                                        <ColumnDefinition Width="51*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <views:CameraFeedControl x:Name="PipCam" Grid.ColumnSpan="2" Margin="4,438,-4,-438"/>
 
                                     <!-- PIP 라벨 (좌상단) -->
                                     <Border VerticalAlignment="Top" HorizontalAlignment="Left"
-                                            Margin="8" Background="#CC000000" CornerRadius="4"
-                                            Padding="7,3">
-                                        <StackPanel Orientation="Horizontal">
+                                            Margin="184,4,0,0" Background="#CC000000" CornerRadius="4"
+                                            Padding="7,3" Grid.ColumnSpan="2">
+                                        <StackPanel Orientation="Horizontal" RenderTransformOrigin="0.5,0.5">
+                                            <StackPanel.RenderTransform>
+                                                <TransformGroup>
+                                                    <ScaleTransform/>
+                                                    <SkewTransform/>
+                                                    <RotateTransform Angle="-0.158"/>
+                                                    <TranslateTransform/>
+                                                </TransformGroup>
+                                            </StackPanel.RenderTransform>
                                             <Ellipse x:Name="PipDot" Width="6" Height="6"
                                                      Fill="#FB923C"
                                                      VerticalAlignment="Center" Margin="0,0,5,0"/>
@@ -168,8 +180,8 @@
 
                                     <!-- PIP 전환 힌트 (우상단) -->
                                     <Border VerticalAlignment="Top" HorizontalAlignment="Right"
-                                            Margin="8" Background="#99000000" CornerRadius="4"
-                                            Padding="6,2">
+                                            Margin="0,3,10,0" Background="#99000000" CornerRadius="4"
+                                            Padding="6,2" Grid.Column="1">
                                         <TextBlock Text="⇄" FontSize="12" Foreground="White"/>
                                     </Border>
                                 </Grid>
@@ -531,22 +543,22 @@
                                     <Border Canvas.Left="128" Canvas.Top="35" Width="140" Height="38"
                                         Background="#BFDBFE" CornerRadius="5" BorderBrush="#93C5FD" BorderThickness="1"/>
                                     <Grid Canvas.Left="134" Canvas.Top="40" Width="28" Height="28">
-                                        <Ellipse Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotSyak1" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
                                         <TextBlock Text="1" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="166" Canvas.Top="40" Width="28" Height="28">
-                                        <Ellipse Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotSyak2" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
                                         <TextBlock Text="2" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="198" Canvas.Top="40" Width="28" Height="28">
-                                        <Ellipse Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotSyak3" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
                                         <TextBlock Text="3" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
-                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                               Foreground= "White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="230" Canvas.Top="40" Width="28" Height="28">
-                                        <Ellipse Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotSyak4" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
                                         <TextBlock Text="4" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>

@@ -12,7 +12,8 @@ namespace monitoring_wpf.Views
     {
         public string UserName { get; private set; } = "default";
         public bool UseRobot { get; private set; } = false;
-        public string RobotIp { get; private set; } = "192.168.0.27";
+        //public string RobotIp { get; private set; } = "192.168.0.27";
+        public string RobotIp { get; private set; } = "192.168.0.32";
         public int RobotPort { get; private set; } = 5001;
 
         private readonly TextBox _nameBox;
@@ -77,7 +78,8 @@ namespace monitoring_wpf.Views
             var ipPanel = new StackPanel { Orientation = Orientation.Horizontal };
             _ipBox = new TextBox
             {
-                Text = "192.168.0.27",
+                //Text = "192.168.0.27",
+                Text = "192.168.0.32",
                 Width = 160,
                 Padding = new Thickness(6),
                 IsEnabled = false,

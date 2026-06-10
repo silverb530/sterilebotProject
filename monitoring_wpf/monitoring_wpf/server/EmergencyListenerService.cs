@@ -17,11 +17,17 @@ namespace monitoring_wpf.service
         // wpf가 라파 신호 받을 포트
         private const int LISTEN_PORT = 9005;
         // 라파 IP
-        private const string PI_IP = "192.168.0.74";
+        //private const string PI_IP = "192.168.0.74";
         // 라파 소켓 서버 포트
+        //private const int PI_PORT = 9002;
+        // 마이코봇 라파 IP
+        private const string PI_IP = "192.168.0.32";
+        // 마이코봇 라파 소켓 서버 포트
         private const int PI_PORT = 9002;
+        // 서보 서버 포트
+        private const int SERVO_PORT = 9003;
         // Flask 서버 주소 (비상 이력 적재용)
-        private const string FLASK_URL = "http://localhost:5000"; 
+        private const string FLASK_URL = "http://localhost:5000";
 
 
         // ── 내부 상태 ────────────────────────────────────
@@ -46,6 +52,8 @@ namespace monitoring_wpf.service
         // true = 비상 , false = 비상 해제
         // ?를 쓰면 구독자가 없을 때 호출해도 에러 안남
         public event Action<bool>? EmergencyStateChanged;
+        public event Action<string>? EmergencySourceChanged;  // ★ 비상 원인 이벤트
+        public event Action? DoorUnlocked;     // 외부문 잠금 안내
 
 
         // ── Pi 수신 리스너 ─────────────────────────────────
@@ -100,14 +108,21 @@ namespace monitoring_wpf.service
                 System.Diagnostics.Debug.WriteLine($"[Emergency] 수신: {msg}");
 
                 // 받은 메시지에 따라 이벤트 발생
-                if (msg == "EMERGENCY") EmergencyStateChanged?.Invoke(true);
+                if (msg.StartsWith("EMERGENCY:") || msg == "EMERGENCY")
+                {
+                    // source 파싱: "EMERGENCY:GAS_SENSOR" → "GAS_SENSOR"
+                    string source = msg.Contains(":") ? msg.Split(':')[1] : "WPF_BUTTON";
+                    EmergencyStateChanged?.Invoke(true);
+                    EmergencySourceChanged?.Invoke(source);  // ★ source 전달
+                }
                 else if (msg == "EMERGENCY_END") EmergencyStateChanged?.Invoke(false);
                 else if (msg.StartsWith("VENT_GAS:"))
                 {
-                    if(int.TryParse(msg.Substring(9),out int gas))  // "VENT_GAS" 글자 빼고 가스 농도만
+                    if (int.TryParse(msg.Substring(9), out int gas))  // "VENT_GAS" 글자 빼고 가스 농도만
                         VentGasUpdate?.Invoke(gas);
                 }
                 else if (msg == "VENT_DONE") VentDone?.Invoke();   // 환기 완료
+                else if (msg == "DOOR_UNLOCKED") DoorUnlocked?.Invoke();   // 문 안잠김
             }
             finally
             {
@@ -132,7 +147,7 @@ namespace monitoring_wpf.service
 
                 System.Diagnostics.Debug.WriteLine($"[Emergency] Pi 전송: {msg}");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Emergency] Pi 전송 실패: {ex.Message}");
             }
@@ -223,6 +238,30 @@ namespace monitoring_wpf.service
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Emergency] researcher_id 업데이트 실패: {ex.Message}");
+            }
+        }
+
+        // 서보 서버(도어 제어)에 명령 전송
+        // msg : "EXP_START" | "LOCK_OPEN" | "LOCK_CLOSE" | "DOOR_OPEN" | "DOOR_CLOSE" | "EXP_END"
+        public static async Task SendToServoAsync(string msg)
+        {
+            try
+            {
+                using var client = new TcpClient();
+
+                // 2초 안에 연결 안 되면 포기 (Pi 꺼져있어도 WPF 안 멈춤)
+                await client.ConnectAsync(PI_IP, SERVO_PORT).WaitAsync(TimeSpan.FromSeconds(2));
+
+                // 문자열 → 바이트 변환 후 전송
+                var data = Encoding.UTF8.GetBytes(msg + "\n");
+                await client.GetStream().WriteAsync(data);
+
+                System.Diagnostics.Debug.WriteLine($"[Servo] 전송: {msg}");
+            }
+            catch (Exception ex)
+            {
+                // Pi 꺼져있거나 네트워크 문제 → 서보 안 움직이지만 WPF는 정상 동작
+                System.Diagnostics.Debug.WriteLine($"[Servo] 전송 실패: {ex.Message}");
             }
         }
 

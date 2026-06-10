@@ -44,10 +44,19 @@ void checkCommand(){
     if(cmd == "VENT_START"){
       venting = true;
       ventStart = millis();
-      ventDuration = 180000;
+      ventDuration = 10000;
       gasLowStart = 0;
       digitalWrite(FAN_PIN, HIGH);
       Serial.println("환기 시작");
+    }
+    else if(cmd == "FAN_ON"){           // ◀ 추가: 비상 시 팬 켜기
+      digitalWrite(FAN_PIN, HIGH);
+      Serial.println("팬 ON");
+    }
+    else if(cmd == "FAN_OFF"){          // ◀ 추가: 비상 해제 시 팬 끄기
+      digitalWrite(FAN_PIN, LOW);
+      venting = false;
+      Serial.println("팬 OFF");
     }
   }
 }
@@ -89,6 +98,14 @@ void handleVenting(){
 void readGas(){
   // A0 핀에서 아날로그 값 읽기 (0~1023)
   int gasValue = analogRead(A0);
+
+  // 1초마다 가스값 전송
+  static unsigned long lastGasSend = 0;
+  if(millis() - lastGasSend >= 1000){
+    Serial.println("GAS:" + String(gasValue));
+    lastGasSend = millis();
+  }
+
   //Serial.print("현재 가스 농도 ： ");
   //Serial.println(gasValue);
   // 400이상 가스농도 , 3초이상 누출 시 이요이용

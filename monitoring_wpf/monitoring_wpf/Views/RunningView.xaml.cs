@@ -1,16 +1,17 @@
+using monitoring_wpf.service;
+using monitoring_wpf.Services;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using monitoring_wpf.Services;
 
 namespace monitoring_wpf.Views
 {
@@ -69,7 +70,7 @@ namespace monitoring_wpf.Views
             return -1;
         }
 
-        private bool _labIsMain = true;
+        private bool _labIsMain = false;
         private bool _isDoorLocked = false;
 
         public RunningView()
@@ -272,16 +273,29 @@ namespace monitoring_wpf.Views
 
         private void DoorLock_Click(object s, RoutedEventArgs e)
         {
+            // 토글: 잠금 ↔ 해제
             _isDoorLocked = !_isDoorLocked;
+
+            // 서보 서버에 잠금/해제 명령 전송
+            // 잠김 상태로 바뀌면 LOCK_CLOSE, 해제 상태로 바뀌면 LOCK_OPEN
+            _ = EmergencyListenerService.SendToServoAsync(
+                    _isDoorLocked ? "LOCK_CLOSE" : "LOCK_OPEN");   // ◀ 추가
+
+            // 버튼 텍스트 변경
             if (BtnDoorLock.Template.FindName("t", BtnDoorLock) is System.Windows.Controls.TextBlock tb)
             {
                 tb.Text = _isDoorLocked ? "🔒  외부문 잠금" : "🔓  외부문 잠금해제";
+
+                // 잠김 = 빨강, 해제 = 초록
                 tb.Foreground = _isDoorLocked
                     ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDC, 0x26, 0x26))
                     : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x16, 0xA3, 0x4A));
             }
+
+            // 버튼 배경색 변경
             if (BtnDoorLock.Parent is System.Windows.Controls.Border parent)
             {
+                // 잠김 = 연한 빨강, 해제 = 연한 초록
                 parent.Background = _isDoorLocked
                     ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFE, 0xF2, 0xF2))
                     : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF0, 0xFD, 0xF4));
@@ -529,6 +543,22 @@ namespace monitoring_wpf.Views
                 else
                     MapStatusText.Text = "";
             }
+            // ── 현재 작업 상태 업데이트 ──
+            if (state.Holding != null)
+            {
+                WorkStatusText.Text = "시험관 이동 중";
+                WorkStatusSub.Text = $"{state.Holding} 잡는 중";
+            }
+            else if (state.Busy)
+            {
+                WorkStatusText.Text = "동작 중";
+                WorkStatusSub.Text = "로봇 작업 진행 중";
+            }
+            else
+            {
+                WorkStatusText.Text = "대기 중";
+                WorkStatusSub.Text = "—";
+            }
         }
 
         /// <summary>
@@ -581,6 +611,11 @@ namespace monitoring_wpf.Views
             tb.Text = num;
             Canvas.SetLeft(tb, labelLeft);
             Canvas.SetTop(tb, labelTop);
+        }
+
+        private void MainCam_Loaded(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 }

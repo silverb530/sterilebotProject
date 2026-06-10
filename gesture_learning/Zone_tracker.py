@@ -498,98 +498,98 @@ def main():
                         print(f"[SELECT2] {selected_child['name']} (slot={slot})")
 
                         zone_name = selected_zone["name"].upper()
-                    if "REAGENT" in zone_name:
-                        if stir_step == "DROP_MOVE":
-                            # 섞기 후 막대 원위치로 이동 단계
-                            print(f"  [ROBOT] stir_drop_move → 막대 원위치 이동")
-                            if robot:
-                                ok = robot.stir_drop_move()
-                                print(f"  [ROBOT] stir_drop_move → {ok}")
-                                if ok:
+                        if "REAGENT" in zone_name:
+                            if stir_step == "DROP_MOVE":
+                                # 섞기 후 막대 원위치로 이동 단계
+                                print(f"  [ROBOT] stir_drop_move → 막대 원위치 이동")
+                                if robot:
+                                    ok = robot.stir_drop_move()
+                                    print(f"  [ROBOT] stir_drop_move → {ok}")
+                                    if ok:
+                                        drop_pending = True
+                                else:
+                                    print(f"  [SIM] stir_drop_move")
                                     drop_pending = True
+                                selected_zone  = None
+                                selected_child = None
+                                state = "STAGE1"
+                                if drop_pending:
+                                    print("  → 막대 원위치 도달 후 RELEASE 제스처로 놓기")
                             else:
-                                print(f"  [SIM] stir_drop_move")
-                                drop_pending = True
-                            selected_zone  = None
-                            selected_child = None
-                            state = "STAGE1"
-                            if drop_pending:
-                                print("  → 막대 원위치 도달 후 RELEASE 제스처로 놓기")
-                        else:
-                            # 시약통 → pickup_move(tube_num) [수직]
-                            tube_num = finger
-                            if robot:
-                                ok = robot.pickup_move(tube_num)
-                                print(f"  [ROBOT] pickup_move({tube_num}) → {ok}")
-                                if ok:
-                                    pickup_pending    = True
-                                    pickup_mode       = "vertical"
-                                    last_robot_action = "pickup_move"
-                                    last_robot_param  = tube_num
-                            else:
-                                print(f"  [SIM] pickup_move({tube_num})")
-                                pickup_pending = True
-                                pickup_mode    = "vertical"
-                    else:
-                        # A_tubes, B_tubes
-                        # 이미 꽂혀있는 슬롯이면 수평 집기, 아니면 수직 꽂기
-                        # (꽂은 후 바로 POUR/GRAB 등 추가 동작 가능)
-                        if slot in tube_slots:
-                            # 꽂혀있는 슬롯 → 수평 이동 후 GRAB 대기
-                            print(f"  → {slot} 수평 집기 이동")
-                            ok = False
-                            if robot:
-                                for _ in range(5):
-                                    if not robot.playing:
-                                        ok = robot.pickup_lift_move(slot)
-                                        if ok: break
-                                    time.sleep(0.5)
-                                print(f"  [ROBOT] pickup_lift_move({slot}) → {ok}")
-                                if ok:
-                                    tube_slots.discard(slot)
+                                # 시약통 → pickup_move(tube_num) [수직]
+                                tube_num = finger
+                                if robot:
+                                    ok = robot.pickup_move(tube_num)
+                                    print(f"  [ROBOT] pickup_move({tube_num}) → {ok}")
+                                    if ok:
+                                        pickup_pending    = True
+                                        pickup_mode       = "vertical"
+                                        last_robot_action = "pickup_move"
+                                        last_robot_param  = tube_num
+                                else:
+                                    print(f"  [SIM] pickup_move({tube_num})")
                                     pickup_pending = True
-                                    pickup_mode    = "horizontal"
-                            else:
-                                tube_slots.discard(slot)
-                                pickup_pending = True
-                                pickup_mode    = "horizontal"
+                                    pickup_mode    = "vertical"
                         else:
-                            # 빈 슬롯 — 인접 슬롯 검증 (옆으로 집기 공간 확보)
-                            if holding_tube and not can_drop_at(slot, tube_slots):
-                                print(f"  [WARN] {slot} 인접 슬롯에 시험관 있음 → 꽂기 불가 (옆으로 집을 공간 없음)")
-                            elif holding_tube and pickup_mode == "horizontal":
-                                # 수평으로 잡았으면 수평으로 이동 후 RELEASE 대기
+                            # A_tubes, B_tubes
+                            # 이미 꽂혀있는 슬롯이면 수평 집기, 아니면 수직 꽂기
+                            # (꽂은 후 바로 POUR/GRAB 등 추가 동작 가능)
+                            if slot in tube_slots:
+                                # 꽂혀있는 슬롯 → 수평 이동 후 GRAB 대기
+                                print(f"  → {slot} 수평 집기 이동")
                                 ok = False
                                 if robot:
                                     for _ in range(5):
                                         if not robot.playing:
-                                            ok = robot.side_drop_move(slot)
+                                            ok = robot.pickup_lift_move(slot)
                                             if ok: break
                                         time.sleep(0.5)
-                                    print(f"  [ROBOT] side_drop_move({slot}) → {ok}")
+                                    print(f"  [ROBOT] pickup_lift_move({slot}) → {ok}")
                                     if ok:
-                                        drop_pending = True
+                                        tube_slots.discard(slot)
+                                        pickup_pending = True
+                                        pickup_mode    = "horizontal"
                                 else:
-                                    drop_pending = True
+                                    tube_slots.discard(slot)
+                                    pickup_pending = True
+                                    pickup_mode    = "horizontal"
                             else:
-                                # 수직으로 잡았으면 수직으로 꽂기 (drop_move + RELEASE)
-                                ok = False
-                                if robot:
-                                    for retry in range(5):
-                                        if not robot.playing:
-                                            ok = robot.drop_move(slot)
-                                            if ok: break
-                                        time.sleep(0.5)
-                                    print(f"  [ROBOT] drop_move({slot}) → {ok}")
-                                    if ok:
+                                # 빈 슬롯 — 인접 슬롯 검증 (옆으로 집기 공간 확보)
+                                if holding_tube and not can_drop_at(slot, tube_slots):
+                                    print(f"  [WARN] {slot} 인접 슬롯에 시험관 있음 → 꽂기 불가 (옆으로 집을 공간 없음)")
+                                elif holding_tube and pickup_mode == "horizontal":
+                                    # 수평으로 잡았으면 수평으로 이동 후 RELEASE 대기
+                                    ok = False
+                                    if robot:
+                                        for _ in range(5):
+                                            if not robot.playing:
+                                                ok = robot.side_drop_move(slot)
+                                                if ok: break
+                                            time.sleep(0.5)
+                                        print(f"  [ROBOT] side_drop_move({slot}) → {ok}")
+                                        if ok:
+                                            drop_pending = True
+                                    else:
                                         drop_pending = True
                                 else:
-                                    print(f"  [SIM] drop_move({slot})")
-                                    drop_pending = True
-                        if drop_pending:
-                            print(f"  → {slot} 위치 도달. RELEASE 제스처로 놓기")
-                        elif not pickup_pending:
-                            print(f"  → {slot} 완료")
+                                    # 수직으로 잡았으면 수직으로 꽂기 (drop_move + RELEASE)
+                                    ok = False
+                                    if robot:
+                                        for retry in range(5):
+                                            if not robot.playing:
+                                                ok = robot.drop_move(slot)
+                                                if ok: break
+                                            time.sleep(0.5)
+                                        print(f"  [ROBOT] drop_move({slot}) → {ok}")
+                                        if ok:
+                                            drop_pending = True
+                                    else:
+                                        print(f"  [SIM] drop_move({slot})")
+                                        drop_pending = True
+                            if drop_pending:
+                                print(f"  → {slot} 위치 도달. RELEASE 제스처로 놓기")
+                            elif not pickup_pending:
+                                print(f"  → {slot} 완료")
 
         # 제스처로 동작 제어
         if gesture and "action" in gesture:

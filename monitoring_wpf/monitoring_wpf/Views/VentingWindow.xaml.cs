@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
+using monitoring_wpf.service;
 
 namespace monitoring_wpf.Views
 {
@@ -37,6 +38,10 @@ namespace monitoring_wpf.Views
                           : Color.FromRgb(0xFB, 0x92, 0x3C));
         }
 
-        private void ForceExit_Click(object sender, RoutedEventArgs e) => Close();
+        private void ForceExit_Click(object sender, RoutedEventArgs e)
+        {
+            _ = EmergencyListenerService.SendToPiAsync("VENT_STOP");
+            Close();
+        }
     }
 }

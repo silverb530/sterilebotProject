@@ -1,7 +1,7 @@
 ﻿<Window x:Class="monitoring_wpf.Views.VentingWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="환기 중" Width="440" Height="400"
+        Title="환기 중" Width="600" Height="560"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None" ResizeMode="NoResize"
         AllowsTransparency="True" Background="Transparent">
@@ -113,13 +113,13 @@
 
                 <!-- 강제 종료 버튼 -->
                 <Button Content="강제 종료" Click="ForceExit_Click"
-                        Width="140" Height="38" Margin="0,18,0,0" Cursor="Hand"
+                        Width="280" Height="100" Margin="0,50,0,0" Cursor="Hand"
                         HorizontalAlignment="Center" Foreground="#CBD5E1"
-                        FontFamily="Segoe UI" FontSize="13">
+                        FontFamily="Segoe UI" FontSize="22" FontWeight="Bold">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="bd" CornerRadius="9" Background="#243B54"
-                                    BorderBrush="#37536F" BorderThickness="1">
+                            <Border x:Name="bd" CornerRadius="14" Background="#243B54"
+                                    BorderBrush="#37536F" BorderThickness="2">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>

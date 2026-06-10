@@ -20,7 +20,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 
-CAMERA_ID    = 0
+CAMERA_ID    = 2
 CAM_W, CAM_H = 640, 480
 ROBOT_Z_DEFAULT = 200
 GESTURE_HOLD_TIME = 0.5

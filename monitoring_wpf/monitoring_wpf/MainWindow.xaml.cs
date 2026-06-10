@@ -4,7 +4,11 @@ using monitoring_wpf.Views;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
+using System.Runtime.ConstrainedExecution;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -20,6 +24,8 @@ namespace monitoring_wpf
         private readonly EmergencyListenerService _emergencyService = new();
         // 환기 이벤트
         private monitoring_wpf.Views.VentingWindow? _ventWindow;
+
+        private bool _resumeDialogShowing = false;   // 재개 다이얼로그 중복 방지
 
         // 인증된 연구원 정보 (한글 이름)
         public static string AuthName { get; set; } = "";
@@ -45,11 +51,7 @@ namespace monitoring_wpf
 
             // Wire navigation callbacks
             ViewFaceAuth.OnAuthComplete = OnAuthCompleted;
-            ViewMain.OnDriveTest = () =>
-            {
-                var w = new monitoring_wpf.Views.DriveTestWindow { Owner = this };
-                w.ShowDialog();
-            };
+            ViewMain.OnDriveTest = () => Navigate("drivetest");
             ViewMain.OnStart = StartExperiment;
             ViewMain.OnExit = () =>
             {
@@ -96,16 +98,35 @@ namespace monitoring_wpf
                 ViewRunning.SetEmergency(true);
                 _ = EmergencyListenerService.SendToPiAsync("EMERGENCY");
                 _ = _emergencyService.HisLoadStartAsync("WPF_BUTTON", MainWindow.AuthId);
-                _ = PlayAlarmAsync();  // ★ 대피 음성 재생
+                _ = PlayAlarmAsync();          // ★ 대피 음성 재생
+                _ = SendToSecurityAsync();     // ★ 보안실 비상 알림
             };
 
             // ★ 비상 해제 시 음성 중단 추가
             ViewRunning.OnResume = () =>
             {
                 ViewRunning.SetEmergency(false);
-                _ = EmergencyListenerService.SendToPiAsync("EMERGENCY_END"); // Pi 부저/LCD도 끔
+                _ = EmergencyListenerService.SendToPiAsync("EMERGENCY_END");
                 _ = _emergencyService.HisLoadEndAsync("WPF_RESET");
-                _ = StopAlarmAsync();  // ★ 대피 음성 중단
+                _ = StopAlarmAsync();              // ★ 대피 음성 중단
+                _ = SendClearToSecurityAsync();    // ★ 보안실 해제 알림
+
+                ShowResumeDialog();   // 계속/종료 큰 버튼 창
+            };
+
+            // ★ 비상 원인 수신 시 로그 출력
+            _emergencyService.EmergencySourceChanged += source =>
+            {
+                string sourceName = source switch
+                {
+                    "GAS_SENSOR" => "가스 누출",
+                    "EME_BUTTON" => "비상 버튼",
+                    "FALL_DOWN" => "쓰러짐 감지",
+                    "WPF_BUTTON" => "WPF 버튼",
+                    _ => source
+                };
+                Dispatcher.Invoke(() =>
+                    System.Diagnostics.Debug.WriteLine($"[비상 원인] {sourceName}"));
             };
 
             // ★ Pi 발생 비상 시에도 음성 재생
@@ -115,11 +136,15 @@ namespace monitoring_wpf
                 if (isEmergency)
                 {
                     _ = _emergencyService.UpdateResearcherAsync(MainWindow.AuthId);
-                    _ = PlayAlarmAsync();  // ★ 대피 음성 재생
+                    _ = PlayAlarmAsync();              // ★ 대피 음성 재생
+                    _ = SendToSecurityAsync();         // ★ 보안실 비상 알림
                 }
                 else
                 {
-                    _ = StopAlarmAsync();  // ★ 대피 음성 중단
+                    _ = StopAlarmAsync();              // ★ 대피 음성 중단
+                    _ = SendClearToSecurityAsync();    // ★ 보안실 해제 알림
+
+                    Dispatcher.Invoke(ShowResumeDialog);   // 계속/종료 큰 버튼 창
                 }
             };
 
@@ -133,9 +158,42 @@ namespace monitoring_wpf
             {
                 Dispatcher.Invoke(() => _ventWindow?.UpdateGas(gas));
             };
+
+            // 외부문 미잠금 시 안내
+            _emergencyService.DoorUnlocked += () =>
+            {
+                Dispatcher.Invoke(() =>
+                    MessageBox.Show(
+                        "외부문이 잠겨있지 않습니다.\n\n시약관에 접근하려면 먼저 외부문을 잠가주세요.",
+                        "외부문 잠금 필요",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning));
+            };
             _emergencyService.Start();
 
             Navigate("faceauth");
+        }
+
+        // 비상 해제 후 계속/종료 선택 창
+        private void ShowResumeDialog()
+        {
+            if (_resumeDialogShowing) return;   // 중복 방지
+            _resumeDialogShowing = true;
+
+            var dlg = new monitoring_wpf.Views.ResumeDialog { Owner = this };
+            dlg.ShowDialog();
+
+            _resumeDialogShowing = false;
+
+            if (!dlg.ContinueExperiment)
+            {
+                // 종료 → 홈 복귀 + 실험 종료 + 메인
+                _ = new HttpClient { Timeout = TimeSpan.FromSeconds(10) }
+                    .GetAsync("http://192.168.0.32:5001/home");
+                _procMgr.StopExperiment();
+                Navigate("main");
+            }
+            // 계속 → 창만 닫힘 (HOME 응시로 재개)
         }
 
         // ★ 대피 음성 재생 요청
@@ -163,6 +221,40 @@ namespace monitoring_wpf
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Alarm] 중단 실패: {ex.Message}");
+            }
+        }
+
+        // ★ 보안실 비상 UDP 브로드캐스트 (포트 9998)
+        private async Task SendToSecurityAsync()
+        {
+            try
+            {
+                using var udp = new UdpClient();
+                udp.EnableBroadcast = true;
+                var msg = Encoding.UTF8.GetBytes(
+                  $"{{\"type\":\"emergency\",\"ts\":\"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\"}}");
+                await udp.SendAsync(msg, msg.Length, "255.255.255.255", 9998);
+                System.Diagnostics.Debug.WriteLine("[보안실] 비상 UDP 전송 완료");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[보안실] 비상 전송 실패: {ex.Message}");
+            }
+        }
+
+        private async Task SendClearToSecurityAsync()
+        {
+            try
+            {
+                using var udp = new UdpClient();
+                udp.EnableBroadcast = true;
+                var msg = Encoding.UTF8.GetBytes("{\"type\":\"clear\"}");
+                await udp.SendAsync(msg, msg.Length, "255.255.255.255", 9998);
+                System.Diagnostics.Debug.WriteLine("[보안실] 해제 UDP 전송 완료");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[보안실] 해제 전송 실패: {ex.Message}");
             }
         }
 
@@ -227,6 +319,11 @@ namespace monitoring_wpf
         private void StartExperiment()
         {
             string userName = string.IsNullOrEmpty(CalibName) ? "minjun" : CalibName;
+
+            // 실험 시작 시 서보 초기화 (잠금장치 잠금)
+            // Pi의 door_server.py가 EXP_START 수신 → experiment_start() 실행
+            _ = EmergencyListenerService.SendToServoAsync("EXP_START");  // ◀ 추가
+
             _procMgr.StartAll(userName, useRobot: true, robotIp: "192.168.0.32", robotPort: 5001);
             Navigate("running");
         }

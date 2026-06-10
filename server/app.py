@@ -21,7 +21,7 @@ import sys
 from db import get_db
 from routes.emergency import emergency_bp
 
-import face_recognition
+# import face_recognition
 import cv2
 import mysql.connector
 import numpy as np
@@ -38,6 +38,9 @@ app.register_blueprint(emergency_bp)
 state = {
     "fsm": "IDLE",
     "ear": 0.32,
+    "gas": 50,
+    "temp" : 27.0,
+    "humidity" : 30,
     "gaze": {"cx": 640, "cy": 400, "rx": 0, "ry": 0},
     "dwell": 0,
     "robot": {"x": 135, "y": -82, "z": 200, "rx": 0, "ry": 0, "rz": 0},
@@ -199,6 +202,14 @@ def stream():
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
+@app.route("/api/sensor", methods=["POST"])
+def set_sensor():
+    d = request.get_json(force=True)
+    with state_lock:
+        if "gas" in d:   state["gas"] = d["gas"]
+        if "temp" in d:  state["temp"] = d["temp"]
+        if "humidity" in d: state["humidity"] = d["humidity"]
+    return jsonify({"ok": True})
 
 @app.route("/api/state")
 def get_state():
