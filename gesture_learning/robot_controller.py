@@ -61,6 +61,10 @@ class RobotController:
     def go_home(self):
         return self._start("/home", "홈 복귀")
 
+    def go_home_lift(self):
+        """수평 자세 유지 홈 복귀"""
+        return self._start("/home_lift", "수평 홈 복귀")
+
     def grip_close(self):
         self.gripper_closed = True
         self._get("/grip/close")
@@ -100,8 +104,12 @@ class RobotController:
         return self._start(f"/pickup_move/{tube_num}", f"tube_{tube_num} 이동")
 
     def pickup_grip(self):
-        """그리퍼 닫기 + 저장된 복귀 경로 재생"""
+        """그리퍼 닫기 + 저장된 복귀 경로 재생 (수직 홈)"""
         return self._start("/pickup_grip", "잡기+복귀")
+
+    def pickup_grip_lift(self):
+        """그리퍼 닫기 + 저장된 복귀 경로 재생 (수평 홈)"""
+        return self._start("/pickup_grip_lift", "잡기+수평복귀")
 
     def pickup_tube(self, tube_num):
         """집기 단순 호출 (구버전 호환)"""

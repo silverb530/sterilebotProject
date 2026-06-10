@@ -70,7 +70,7 @@ namespace monitoring_wpf.Views
             return -1;
         }
 
-        private bool _labIsMain = false;
+        private bool _labIsMain = true;
         private bool _isDoorLocked = false;
 
         public RunningView()
@@ -85,12 +85,15 @@ namespace monitoring_wpf.Views
             _statePoll.Interval = TimeSpan.FromSeconds(1);
             _statePoll.Tick += async (_, _) => await PollState();
 
-            IsVisibleChanged += (_, _) =>
+            IsVisibleChanged += async (_, _) =>
             {
                 if (IsVisible)
                 {
                     StartCameras();
                     _statePoll.Start();
+                    // 실험 시작 시 이전 로그 초기화
+                    try { await _http.GetAsync($"{PiBase}/clear_log"); }
+                    catch { /* Pi 미연결 무시 */ }
                 }
                 else
                 {
@@ -273,29 +276,16 @@ namespace monitoring_wpf.Views
 
         private void DoorLock_Click(object s, RoutedEventArgs e)
         {
-            // 토글: 잠금 ↔ 해제
             _isDoorLocked = !_isDoorLocked;
-
-            // 서보 서버에 잠금/해제 명령 전송
-            // 잠김 상태로 바뀌면 LOCK_CLOSE, 해제 상태로 바뀌면 LOCK_OPEN
-            _ = EmergencyListenerService.SendToServoAsync(
-                    _isDoorLocked ? "LOCK_CLOSE" : "LOCK_OPEN");   // ◀ 추가
-
-            // 버튼 텍스트 변경
             if (BtnDoorLock.Template.FindName("t", BtnDoorLock) is System.Windows.Controls.TextBlock tb)
             {
                 tb.Text = _isDoorLocked ? "🔒  외부문 잠금" : "🔓  외부문 잠금해제";
-
-                // 잠김 = 빨강, 해제 = 초록
                 tb.Foreground = _isDoorLocked
                     ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDC, 0x26, 0x26))
                     : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x16, 0xA3, 0x4A));
             }
-
-            // 버튼 배경색 변경
             if (BtnDoorLock.Parent is System.Windows.Controls.Border parent)
             {
-                // 잠김 = 연한 빨강, 해제 = 연한 초록
                 parent.Background = _isDoorLocked
                     ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFE, 0xF2, 0xF2))
                     : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF0, 0xFD, 0xF4));
@@ -381,7 +371,6 @@ namespace monitoring_wpf.Views
                 slot.Stroke = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
                 slot.StrokeThickness = 3;
                 _lastHighlighted = slot;
-                MapStatusText.Text = $"▶ {slotName} 선택됨";
             }
         }
 
@@ -394,7 +383,6 @@ namespace monitoring_wpf.Views
                 _lastHighlighted.StrokeThickness = 1.5;
                 _lastHighlighted = null;
             }
-            MapStatusText.Text = "";
         }
 
         // ══════════════════════════════════════════
@@ -436,15 +424,7 @@ namespace monitoring_wpf.Views
 
         private static string TubeSlotName(string slot)
         {
-            // A 슬롯은 그대로 (SlotA1 = 화면 "1")
-            // B 슬롯은 역매핑 (서버 "B1" → 화면 "1"이 보이는 자리 = SlotB4)
-            if (slot.Length == 2 && slot[0] == 'B' && char.IsDigit(slot[1]))
-            {
-                int n = slot[1] - '0';                  // "B1" → 1
-                int flipped = 5 - n;                    // 1↔4, 2↔3
-                return $"SlotB{flipped}";
-            }
-            return $"Slot{slot}";   // SlotA1 등
+            return $"Slot{slot}";   // SlotA1, SlotB3 등 — 직접 매핑
         }
 
         // ── 색상 ──
@@ -533,31 +513,39 @@ namespace monitoring_wpf.Views
                 }
             }
 
-            // ── 상단 텍스트: 로봇이 무엇을 들고 있는지 ──
-            if (_lastHighlighted == null)
-            {
-                if (state.Holding != null)
-                    MapStatusText.Text = $"🦾 {state.Holding} 잡음";
-                else if (state.Busy)
-                    MapStatusText.Text = "🦾 동작 중...";
-                else
-                    MapStatusText.Text = "";
-            }
-            // ── 현재 작업 상태 업데이트 ──
+            // ── 현재 작업 상태 업데이트 (상세) ──
             if (state.Holding != null)
             {
-                WorkStatusText.Text = "시험관 이동 중";
-                WorkStatusSub.Text = $"{state.Holding} 잡는 중";
+                string tubeNum = state.Holding.StartsWith("tube_")
+                    ? state.Holding.Substring(5) + "번"
+                    : state.Holding;
+                WorkStatusText.Text = $"🦾 {tubeNum} 시험관 이동 중";
+                WorkStatusSub.Text = "그리퍼가 시험관을 잡고 있습니다";
             }
             else if (state.Busy)
             {
-                WorkStatusText.Text = "동작 중";
-                WorkStatusSub.Text = "로봇 작업 진행 중";
+                WorkStatusText.Text = "⚙ 로봇 동작 중";
+                WorkStatusSub.Text = "로봇팔이 이동하고 있습니다";
             }
             else
             {
-                WorkStatusText.Text = "대기 중";
-                WorkStatusSub.Text = "—";
+                int occupied = 0;
+                foreach (var kv in tubes)
+                {
+                    var loc = kv.Value;
+                    if (loc.Length == 2 && (loc[0] == 'A' || loc[0] == 'B') && char.IsDigit(loc[1]))
+                        occupied++;
+                }
+                if (occupied > 0)
+                {
+                    WorkStatusText.Text = "대기 중";
+                    WorkStatusSub.Text = $"거치대 {occupied}개 슬롯 사용 중";
+                }
+                else
+                {
+                    WorkStatusText.Text = "대기 중";
+                    WorkStatusSub.Text = "시선/제스처로 작업을 시작하세요";
+                }
             }
         }
 
@@ -611,11 +599,6 @@ namespace monitoring_wpf.Views
             tb.Text = num;
             Canvas.SetLeft(tb, labelLeft);
             Canvas.SetTop(tb, labelTop);
-        }
-
-        private void MainCam_Loaded(object sender, RoutedEventArgs e)
-        {
-
         }
     }
 }

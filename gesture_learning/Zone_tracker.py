@@ -28,7 +28,7 @@ from mjpeg_streamer import MjpegStreamer
 # ────────────────────────────────────────────────
 #  설정값
 # ────────────────────────────────────────────────
-CAMERA_INDEX    = 2
+CAMERA_INDEX    = 0
 MJPEG_PORT      = 8090
 ZONE_FILE       = "zone_data.json"
 CURSOR_PORT     = 9002
@@ -320,7 +320,10 @@ def main():
                             else:
                                 # 그 외 모든 경우 → 홈 복귀 + 전체 초기화
                                 if robot:
-                                    robot.go_home()
+                                    if holding_tube and pickup_mode == "horizontal":
+                                        robot.go_home_lift()
+                                    else:
+                                        robot.go_home()
                                 stir_step         = None
                                 stir_pending      = False
                                 stir_drop_pending = False
@@ -334,7 +337,9 @@ def main():
                                 last_gesture      = None
                                 print("[HOME] 홈 복귀 + 전체 초기화")
                         elif hover_zone["name"].upper() == "BEAKER" and (holding_tube or holding_stir):
-                            if holding_stir and not stir_drop_pending and stir_step != "DROP_MOVE":
+                            if robot and robot.playing:
+                                print("[BEAKER] 무시 — 이동 중")
+                            elif holding_stir and not stir_drop_pending and stir_step != "DROP_MOVE":
                                 # 막대 잡은 상태 → 비커 위치로 이동 후 SHAKE 대기 (중복 방지)
                                 print("[BEAKER] 비커 위치로 이동 → SHAKE 제스처로 섞기")
                                 stir_step = "BEAKER_MOVING"  # 이동 중 플래그 → 재트리거 방지
@@ -409,6 +414,10 @@ def main():
                 if stir_step == "DROP_MOVE" and not is_stir and not is_home:
                     continue
 
+                # beaker_ready 상태 → 비커 + HOME만 표시
+                if beaker_ready and not is_beaker and not is_home:
+                    continue
+
                 if is_home:
                     color = (0, 0, 255) if is_hover else (0, 0, 180)
                 else:
@@ -462,9 +471,14 @@ def main():
                             (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                             0.8, (0,255,255), 2)
             elif beaker_ready:
-                cv2.putText(display, "POUR",
-                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.8, (0,140,255), 2)
+                if robot and robot.playing:
+                    cv2.putText(display, "Moving to Beaker",
+                                (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.8, (0,255,255), 2)
+                else:
+                    cv2.putText(display, "POUR",
+                                (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.8, (0,140,255), 2)
             elif robot and robot.playing:
                 cv2.putText(display, "Moving",
                             (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
@@ -474,7 +488,7 @@ def main():
         if state == "STAGE1" and holding_tube and beaker_ready:
             if gesture and gesture.get("action") == "POUR":
                 if robot and robot.playing:
-                    pass  # 아직 이동 중
+                    pass  # 아직 비커 이동 중 — 대기
                 else:
                     print("[ROBOT] 붓기 동작 실행")
                     robot.beaker_pour()
@@ -532,10 +546,8 @@ def main():
                                     pickup_mode    = "vertical"
                         else:
                             # A_tubes, B_tubes
-                            # 이미 꽂혀있는 슬롯이면 수평 집기, 아니면 수직 꽂기
-                            # (꽂은 후 바로 POUR/GRAB 등 추가 동작 가능)
-                            if slot in tube_slots:
-                                # 꽂혀있는 슬롯 → 수평 이동 후 GRAB 대기
+                            if not holding_tube:
+                                # 시험관 안 들고 있으면 → 무조건 수평 집기
                                 print(f"  → {slot} 수평 집기 이동")
                                 ok = False
                                 if robot:
@@ -554,10 +566,10 @@ def main():
                                     pickup_pending = True
                                     pickup_mode    = "horizontal"
                             else:
-                                # 빈 슬롯 — 인접 슬롯 검증 (옆으로 집기 공간 확보)
-                                if holding_tube and not can_drop_at(slot, tube_slots):
+                                # 시험관 들고 있으면 → 놓기
+                                if not can_drop_at(slot, tube_slots):
                                     print(f"  [WARN] {slot} 인접 슬롯에 시험관 있음 → 꽂기 불가 (옆으로 집을 공간 없음)")
-                                elif holding_tube and pickup_mode == "horizontal":
+                                elif pickup_mode == "horizontal":
                                     # 수평으로 잡았으면 수평으로 이동 후 RELEASE 대기
                                     ok = False
                                     if robot:
@@ -657,8 +669,12 @@ def main():
                         state             = "STAGE1"
                         print("[ROBOT] 막대 잡기 완료 → Beaker 구역 선택하세요")
                 elif pickup_pending:
-                    ok = robot.pickup_grip()
-                    print(f"  [ROBOT] pickup_grip → {ok}")
+                    if pickup_mode == "horizontal":
+                        ok = robot.pickup_grip_lift()
+                        print(f"  [ROBOT] pickup_grip_lift → {ok}")
+                    else:
+                        ok = robot.pickup_grip()
+                        print(f"  [ROBOT] pickup_grip → {ok}")
                     if ok:
                         pickup_pending    = False
                         holding_tube      = True

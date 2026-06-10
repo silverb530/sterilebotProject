@@ -86,30 +86,14 @@
                         <DropShadowEffect Color="#1E3A5F" BlurRadius="16" ShadowDepth="0" Opacity="0.15"/>
                     </Border.Effect>
                     <Grid>
-                        <!-- 헤더 -->
-                        <Border VerticalAlignment="Top" CornerRadius="10,10,0,0"
-                                Background="#F0F6FF" BorderBrush="#CBD5E1"
-                                BorderThickness="0,0,0,1" Height="36" Panel.ZIndex="1">
-                            <StackPanel Orientation="Horizontal"
-                                        VerticalAlignment="Center" Margin="14,0">
-                                <Ellipse Width="8" Height="8" Fill="#16A34A" Margin="0,0,7,0"/>
-                                <TextBlock Text="실험실 작업 모니터링"
-                                           FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"
-                                           Foreground="#374151"/>
-                                <TextBlock Text="  ·  클릭하여 카메라 전환"
-                                           FontFamily="Segoe UI" FontSize="10"
-                                           Foreground="#94A3B8"/>
-                            </StackPanel>
-                        </Border>
-
                         <!-- ── 카메라 영역 (PIP 오버레이) ── -->
-                        <Grid Margin="0,36,0,0">
+                        <Grid Margin="0,0,0,0">
 
                             <!-- ① 메인 카메라 (풀사이즈, 클릭하면 스왑) -->
                             <Grid x:Name="MainCamGrid" Background="#070C14"
                                   Cursor="Hand"
                                   MouseLeftButtonDown="MainCam_Click">
-                                <views:CameraFeedControl x:Name="MainCam" Loaded="MainCam_Loaded"/>
+                                <views:CameraFeedControl x:Name="MainCam"/>
 
                                 <!-- 메인 카메라 라벨 (좌하단) -->
                                 <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
@@ -137,8 +121,8 @@
                             <!-- ② PIP 카메라 (우상단, 클릭하면 스왑) -->
                             <Border x:Name="PipContainer"
                                     Width="300" Height="190"
-                                    HorizontalAlignment="Right" VerticalAlignment="Top"
-                                    Margin="0,12,12,0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Margin="0,0,12,12"
                                     CornerRadius="8"
                                     BorderBrush="White" BorderThickness="2"
                                     Cursor="Hand"
@@ -150,25 +134,13 @@
                                                       ShadowDepth="0" Opacity="0.45"/>
                                 </Border.Effect>
                                 <Grid Background="#070C14">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="97*"/>
-                                        <ColumnDefinition Width="51*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <views:CameraFeedControl x:Name="PipCam" Grid.ColumnSpan="2" Margin="4,438,-4,-438"/>
+                                    <views:CameraFeedControl x:Name="PipCam"/>
 
                                     <!-- PIP 라벨 (좌상단) -->
                                     <Border VerticalAlignment="Top" HorizontalAlignment="Left"
-                                            Margin="184,4,0,0" Background="#CC000000" CornerRadius="4"
-                                            Padding="7,3" Grid.ColumnSpan="2">
-                                        <StackPanel Orientation="Horizontal" RenderTransformOrigin="0.5,0.5">
-                                            <StackPanel.RenderTransform>
-                                                <TransformGroup>
-                                                    <ScaleTransform/>
-                                                    <SkewTransform/>
-                                                    <RotateTransform Angle="-0.158"/>
-                                                    <TranslateTransform/>
-                                                </TransformGroup>
-                                            </StackPanel.RenderTransform>
+                                            Margin="8" Background="#CC000000" CornerRadius="4"
+                                            Padding="7,3">
+                                        <StackPanel Orientation="Horizontal">
                                             <Ellipse x:Name="PipDot" Width="6" Height="6"
                                                      Fill="#FB923C"
                                                      VerticalAlignment="Center" Margin="0,0,5,0"/>
@@ -180,8 +152,8 @@
 
                                     <!-- PIP 전환 힌트 (우상단) -->
                                     <Border VerticalAlignment="Top" HorizontalAlignment="Right"
-                                            Margin="0,3,10,0" Background="#99000000" CornerRadius="4"
-                                            Padding="6,2" Grid.Column="1">
+                                            Margin="8" Background="#99000000" CornerRadius="4"
+                                            Padding="6,2">
                                         <TextBlock Text="⇄" FontSize="12" Foreground="White"/>
                                     </Border>
                                 </Grid>
@@ -555,7 +527,7 @@
                                     <Grid Canvas.Left="198" Canvas.Top="40" Width="28" Height="28">
                                         <Ellipse x:Name="SlotSyak3" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
                                         <TextBlock Text="3" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
-                                               Foreground= "White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="230" Canvas.Top="40" Width="28" Height="28">
                                         <Ellipse x:Name="SlotSyak4" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
@@ -569,22 +541,22 @@
                                     <Border Canvas.Left="34" Canvas.Top="53" Width="38" Height="134"
                                         Background="#BFDBFE" CornerRadius="5" BorderBrush="#93C5FD" BorderThickness="1"/>
                                     <Grid Canvas.Left="39" Canvas.Top="58" Width="28" Height="28">
-                                        <Ellipse x:Name="SlotA4" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotA4" Fill="#CBD5E1" Stroke="#94A3B8" StrokeThickness="1.5"/>
                                         <TextBlock Text="4" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="39" Canvas.Top="90" Width="28" Height="28">
-                                        <Ellipse x:Name="SlotA3" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotA3" Fill="#CBD5E1" Stroke="#94A3B8" StrokeThickness="1.5"/>
                                         <TextBlock Text="3" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="39" Canvas.Top="122" Width="28" Height="28">
-                                        <Ellipse x:Name="SlotA2" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotA2" Fill="#CBD5E1" Stroke="#94A3B8" StrokeThickness="1.5"/>
                                         <TextBlock Text="2" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="39" Canvas.Top="154" Width="28" Height="28">
-                                        <Ellipse x:Name="SlotA1" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotA1" Fill="#CBD5E1" Stroke="#94A3B8" StrokeThickness="1.5"/>
                                         <TextBlock Text="1" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
@@ -616,30 +588,26 @@
                                     <Border Canvas.Left="125" Canvas.Top="223" Width="140" Height="38"
                                         Background="#BFDBFE" CornerRadius="5" BorderBrush="#93C5FD" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                                     <Grid Canvas.Left="134" Canvas.Top="228" Width="28" Height="28">
-                                        <Ellipse x:Name="SlotB4" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotB4" Fill="#CBD5E1" Stroke="#94A3B8" StrokeThickness="1.5"/>
                                         <TextBlock Text="4" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="166" Canvas.Top="228" Width="28" Height="28">
-                                        <Ellipse x:Name="SlotB3" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotB3" Fill="#CBD5E1" Stroke="#94A3B8" StrokeThickness="1.5"/>
                                         <TextBlock Text="3" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="198" Canvas.Top="228" Width="28" Height="28">
-                                        <Ellipse x:Name="SlotB2" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotB2" Fill="#CBD5E1" Stroke="#94A3B8" StrokeThickness="1.5"/>
                                         <TextBlock Text="2" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Canvas.Left="230" Canvas.Top="228" Width="28" Height="28">
-                                        <Ellipse x:Name="SlotB1" Fill="#3B82F6" Stroke="#2563EB" StrokeThickness="1.5"/>
+                                        <Ellipse x:Name="SlotB1" Fill="#CBD5E1" Stroke="#94A3B8" StrokeThickness="1.5"/>
                                         <TextBlock Text="1" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold"
                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Grid>
 
-                                    <!-- 상태 텍스트 -->
-                                    <TextBlock x:Name="MapStatusText" Canvas.Left="82" Canvas.Top="183"
-                                           Text="" FontFamily="Segoe UI" FontSize="10" FontWeight="Bold"
-                                           Foreground="#2563EB"/>
                                 </Canvas>
                             </Viewbox>
                         </Border>
